@@ -1,0 +1,9 @@
+# Archivos de referencia demasiado grandes para GitHub (límite 100 MB)
+Copia de Alma*.pdf
+
+# Dependencias y builds
+node_modules/
+dist/
+.env.local
+.env*.local
+.DS_Store
