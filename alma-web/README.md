@@ -30,6 +30,7 @@ Para publicarlo: `npm run build` genera `dist/`. En Vercel basta con importar la
 | Pantalla de inicio con la cara de Alma: se le habla tocándola, o se abren sus funciones | `/` |
 | Voz de Alma con boca animada que se mueve al hablar | `src/lib/voice.js`, `src/components/AlmaLive.jsx` |
 | Venta por voz ("dos cocas y medio kilo de hallulla"), por toque o con la cámara | `/vender` |
+| Productos a granel con peso exacto: se escribe lo que marcó la pesa (0,735 kg o 735 g), se corrige en la boleta o se calcula desde la plata ("dame una luca") | `/vender` |
 | Cámara: se le enseñan productos (arroz, Coca-Cola, galletas…) y los reconoce | `src/components/CameraScanner.jsx`, `src/lib/vision.js` |
 | Inventario que se descuenta solo con cada venta, se le suman unidades y sugiere precios | `/inventario` |
 | Notificaciones push simuladas (pan que se acaba, subir el arroz Banquete) | `src/components/Push.jsx` |

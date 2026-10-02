@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { PRODUCTS, dateKeyOf, generateDaySales, hourNow, lastWeekSales, pastDays, seedVecinos } from "../data/seed.js";
 import { averageDay, dayStats, vecinoBalance } from "./metrics.js";
 import { setVoiceEnabled } from "./voice.js";
-import { uid } from "./format.js";
+import { round3, uid } from "./format.js";
 
 const STORAGE_KEY = "alma:v1";
 const VERSION = 1;
@@ -63,13 +63,13 @@ function reducer(state, action) {
       const { id, qty } = action;
       const existing = state.cart.find((c) => c.id === id);
       const cart = existing
-        ? state.cart.map((c) => (c.id === id ? { ...c, qty: +(c.qty + qty).toFixed(2) } : c))
+        ? state.cart.map((c) => (c.id === id ? { ...c, qty: round3(c.qty + qty) } : c))
         : [...state.cart, { id, qty }];
       return { ...state, cart };
     }
     case "cart/set": {
       const cart = state.cart
-        .map((c) => (c.id === action.id ? { ...c, qty: +action.qty.toFixed(2) } : c))
+        .map((c) => (c.id === action.id ? { ...c, qty: round3(action.qty) } : c))
         .filter((c) => c.qty > 0);
       return { ...state, cart };
     }
@@ -87,7 +87,7 @@ function reducer(state, action) {
       const sale = { id: uid("v"), ts, items, total, method, vecinoId: vecinoId || null };
       const products = state.products.map((p) => {
         const c = state.cart.find((x) => x.id === p.id);
-        return c ? { ...p, stock: +(p.stock - c.qty).toFixed(2) } : p;
+        return c ? { ...p, stock: round3(p.stock - c.qty) } : p;
       });
       const vecinos =
         method === "fiado"
@@ -103,7 +103,7 @@ function reducer(state, action) {
     case "product/restock":
       return {
         ...state,
-        products: state.products.map((p) => (p.id === action.id ? { ...p, stock: +(p.stock + action.qty).toFixed(2) } : p)),
+        products: state.products.map((p) => (p.id === action.id ? { ...p, stock: round3(p.stock + action.qty) } : p)),
         dismissed: { ...state.dismissed, alerts: state.dismissed.alerts.filter((a) => a !== action.id) },
       };
     case "product/update":

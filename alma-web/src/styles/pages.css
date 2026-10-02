@@ -712,6 +712,86 @@
   grid-area: total;
   font-weight: 900;
 }
+.tl-weight {
+  grid-area: step;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.weight-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background: var(--card);
+  padding: 3px 12px 3px 3px;
+}
+.weight-field input {
+  width: 96px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--paper);
+  text-align: right;
+  padding: 0 10px;
+  font-weight: 900;
+  font-size: 1rem;
+}
+.weight-field input:focus {
+  outline: none;
+  background: var(--pink-wash);
+}
+.weight-field span {
+  font-weight: 900;
+  font-size: 0.95rem;
+}
+
+/* Pesar productos a granel */
+.tile-weigh {
+  align-self: flex-start;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink);
+}
+.weigh-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.weigh-input .input {
+  flex: 1;
+  text-align: right;
+}
+.weigh-input > span {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  text-transform: uppercase;
+}
+.weigh-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  border-radius: 16px;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 800;
+}
+.weigh-total strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 2.2rem;
+  color: var(--pink);
+}
+.weigh-total.is-short {
+  background: var(--pink-wash);
+  color: var(--pink-ink);
+}
 .ticket-total {
   display: flex;
   justify-content: space-between;

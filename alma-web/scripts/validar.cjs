@@ -110,6 +110,29 @@ const clp = (s) => Number(String(s).replace(/\D/g, ''));
   const plus = await stockOf();
   ok('R4 Se pueden añadir unidades', plus === after + 1, `${after} → ${plus}`);
 
+  // Productos a granel: peso exacto escrito con números
+  await page.goto(BASE + '/vender', { waitUntil: 'networkidle' });
+  await page.click('.product-tile:has-text("Pan Hallulla")');
+  await page.fill('.weigh-input input', '0,735');
+  const weighTotal = await page.$eval('.weigh-total strong', e => e.innerText);
+  await page.click('text=Agregar a la boleta');
+  await page.waitForTimeout(200);
+  const line = await page.evaluate(() => {
+    const li = [...document.querySelectorAll('.ticket-lines li')].find(l => l.innerText.includes('Pan Hallulla'));
+    return li && { w: li.querySelector('.weight-field input').value, total: li.querySelector('.tl-total').innerText };
+  });
+  ok('R4 Vender: peso exacto escrito con números (0,735 kg)', line?.w === '0,735' && line?.total === '$1.617' && weighTotal === '$1.617', line ? `${line.w} kg → ${line.total}` : 'sin línea');
+  await page.fill('[aria-label="Peso de Pan Hallulla en kilos"]', '500 g');
+  await page.press('[aria-label="Peso de Pan Hallulla en kilos"]', 'Enter');
+  await page.waitForTimeout(200);
+  const edited = await page.evaluate(() => [...document.querySelectorAll('.ticket-lines li')].find(l => l.innerText.includes('Pan Hallulla'))?.querySelector('.tl-total').innerText);
+  ok('R4 Vender: se corrige el peso en la boleta ("500 g")', edited === '$1.100', edited);
+  await page.click('.product-tile:has-text("Palta Hass")');
+  await page.fill('.weigh .field:nth-of-type(2) input', '1000');
+  const byMoney = await page.$eval('.weigh-input input', e => e.value);
+  ok('R4 Vender: peso calculado desde la plata ("una luca")', byMoney === '0,2', `$1.000 de palta → ${byMoney} kg`);
+  await page.keyboard.press('Escape');
+
   // ---------- 2) Cámara: abrir webcam, enseñar y reconocer ----------
   await page.goto(BASE + '/vender', { waitUntil: 'networkidle' });
   await page.click('text=Escanear con cámara');

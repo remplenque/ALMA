@@ -34,6 +34,8 @@ function parseQty(words) {
       qty = (qty || 0) + NUMBER_WORDS[w];
     }
   }
+  // "300 gramos de hallulla" = 0,3 kg
+  if (qty != null && words.some((w) => /^(g|gr|grs|gramo|gramos)$/.test(w))) qty /= 1000;
   return qty ?? 1;
 }
 
@@ -42,7 +44,7 @@ export function parseOrder(text, products) {
   const clean = normalize(text)
     .replace(/\b(kilos?|kg|\d+|un|uno|una|dos|tres|cuatro|cinco) y (medio|media)\b/g, "$1 ymedio")
     .replace(/\b(anota|anotame|agrega|agregame|vende|vendi|cobra|cobrame|dame|quiero|me llevo|ponme|pasame|por favor|porfa)\b/g, " ");
-  const segments = clean.split(/,|\by\b|\bmas\b|\+|\bcon\b/).map((s) => s.trim()).filter(Boolean);
+  const segments = clean.split(/(?<!\d),|,(?!\d)|\by\b|\bmas\b|\+|\bcon\b/).map((s) => s.trim()).filter(Boolean);
 
   const found = new Map();
   const unknown = [];
@@ -60,7 +62,7 @@ export function parseOrder(text, products) {
       }
     }
     if (!hits.length) {
-      if (seg.replace(/\b(de|del|la|el|los|las|kilo|kilos|kg|unidad|unidades)\b/g, "").trim().length > 2) unknown.push(seg);
+      if (seg.replace(/\b(de|del|la|el|los|las|kilo|kilos|kg|gramos?|grs?|unidad|unidades)\b/g, "").trim().length > 2) unknown.push(seg);
       continue;
     }
     hits.sort((a, b) => a.start - b.start);

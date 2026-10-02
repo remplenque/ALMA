@@ -8,7 +8,8 @@ import { useStore, useToast } from "../lib/store.jsx";
 import { parseOrder } from "../lib/alma.js";
 import { say, useListener } from "../lib/voice.js";
 import { dayStats, vecinoBalance } from "../lib/metrics.js";
-import { clp, qtyLabel } from "../lib/format.js";
+import { clp, kgInput, parseKg, qtyLabel, round3 } from "../lib/format.js";
+import Modal from "../components/Modal.jsx";
 import { CATEGORIES, STORE } from "../data/seed.js";
 
 const EXAMPLES = ["dos cocas y un kilo de marraqueta", "medio kilo de hallulla, una leche y tres super 8", "un aceite y dos fideos"];
@@ -100,14 +101,140 @@ function ProductTile({ p, onAdd }) {
     <button className={`product-tile ${free <= 0 ? "is-out" : ""}`} onClick={() => onAdd(p)} disabled={free <= 0}>
       <span className="tile-top">
         <BrandIcon name={productIcon(p)} size={50} />
-        <span className={`stock-pill ${isLow ? "is-low" : ""}`}>{free <= 0 ? "Agotado" : qtyLabel(+free.toFixed(2), p.unit)}</span>
+        <span className={`stock-pill ${isLow ? "is-low" : ""}`}>{free <= 0 ? "Agotado" : qtyLabel(round3(free), p.unit)}</span>
       </span>
       <span className="tile-name">{p.name}</span>
       <span className="tile-price">
         {clp(p.price)}
         {p.unit === "kg" && <small>/kg</small>}
       </span>
+      {p.unit === "kg" && <span className="tile-weigh">Pesar</span>}
     </button>
+  );
+}
+
+const WEIGH_CHIPS = [0.25, 0.5, 0.75, 1, 1.5];
+
+// Productos a granel: se anota el peso exacto que marcó la pesa, o cuánta plata quiere llevar.
+function WeighModal({ product, onClose }) {
+  const { actions } = useStore();
+  const toast = useToast();
+  const [kg, setKg] = useState("");
+  const [money, setMoney] = useState("");
+
+  useEffect(() => {
+    setKg("");
+    setMoney("");
+  }, [product?.id]);
+
+  if (!product) return <Modal open={false} onClose={onClose} title="" />;
+  const free = round3(actions.available(product.id));
+  const w = round3(parseKg(kg));
+  const tooMuch = w > free;
+  const valid = w > 0 && !tooMuch;
+
+  function byMoney(v) {
+    setMoney(v);
+    const n = Number(v.replace(/\D/g, ""));
+    setKg(n ? kgInput(round3(n / product.price)) : "");
+  }
+
+  return (
+    <Modal open onClose={onClose} title={product.name} kicker="¿Cuánto marcó la pesa?" size="sm">
+      <form
+        className="form weigh"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!valid) return;
+          actions.addToCart(product.id, w);
+          toast(`Anoté ${qtyLabel(w, "kg")} de ${product.name}: ${clp(product.price * w)}.`, "happy");
+          onClose();
+        }}
+      >
+        <label className="field">
+          <span className="field-label">Peso</span>
+          <span className="weigh-input">
+            <input
+              className="input input-lg"
+              autoFocus
+              inputMode="decimal"
+              placeholder="0,000"
+              value={kg}
+              onChange={(e) => {
+                setKg(e.target.value);
+                setMoney("");
+              }}
+              aria-describedby="weigh-help"
+            />
+            <span>kg</span>
+          </span>
+          <span id="weigh-help" className="muted small">
+            Escribe el peso tal cual: 0,735 o 735 g.
+          </span>
+        </label>
+        <div className="chips">
+          {WEIGH_CHIPS.map((n) => (
+            <button type="button" key={n} className={`chip ${w === n ? "is-on" : ""}`} onClick={() => (setKg(kgInput(n)), setMoney(""))} disabled={n > free}>
+              {n < 1 ? `${n * 1000} g` : `${kgInput(n)} kg`}
+            </button>
+          ))}
+        </div>
+        <label className="field">
+          <span className="field-label">O por plata (“dame una luca”)</span>
+          <input className="input" inputMode="numeric" placeholder="$" value={money ? clp(Number(money.replace(/\D/g, ""))) : ""} onChange={(e) => byMoney(e.target.value)} />
+        </label>
+        <div className={`weigh-total ${tooMuch ? "is-short" : ""}`}>
+          {tooMuch ? (
+            <span>Solo quedan {qtyLabel(free, "kg")}</span>
+          ) : (
+            <span>
+              {w > 0 ? qtyLabel(w, "kg") : "0 kg"} × {clp(product.price)}/kg
+            </span>
+          )}
+          <strong>{clp(valid ? product.price * w : 0)}</strong>
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-paper" onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className="btn btn-pink" disabled={!valid}>
+            Agregar a la boleta
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// Peso editable en la boleta: se corrige escribiendo el número.
+function WeightField({ p, qty }) {
+  const { actions } = useStore();
+  const toast = useToast();
+  const [draft, setDraft] = useState(null);
+
+  function commit() {
+    if (draft == null) return;
+    const w = round3(parseKg(draft));
+    if (w > 0) {
+      if (w > p.stock) toast(`Solo quedan ${qtyLabel(p.stock, "kg")} de ${p.name}.`, "sad");
+      actions.setCartQty(p.id, w);
+    }
+    setDraft(null);
+  }
+
+  return (
+    <span className="weight-field">
+      <input
+        inputMode="decimal"
+        value={draft ?? kgInput(qty)}
+        onChange={(e) => setDraft(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+        aria-label={`Peso de ${p.name} en kilos`}
+      />
+      <span>kg</span>
+    </span>
   );
 }
 
@@ -171,7 +298,6 @@ function Ticket() {
         ) : (
           <ul className="ticket-lines">
             {lines.map(({ p, qty }) => {
-              const step = p.unit === "kg" ? 0.5 : 1;
               return (
                 <li key={p.id}>
                   <div className="tl-name">
@@ -181,15 +307,24 @@ function Ticket() {
                       {p.unit === "kg" ? " el kg" : " c/u"}
                     </span>
                   </div>
-                  <div className="stepper">
-                    <button onClick={() => actions.setCartQty(p.id, qty - step)} aria-label={`Quitar ${p.name}`}>
-                      <Minus size={14} weight="bold" />
-                    </button>
-                    <span>{qtyLabel(qty, p.unit)}</span>
-                    <button onClick={() => actions.addToCart(p.id, step)} aria-label={`Agregar ${p.name}`} disabled={actions.available(p.id) < step}>
-                      <Plus size={14} weight="bold" />
-                    </button>
-                  </div>
+                  {p.unit === "kg" ? (
+                    <div className="tl-weight">
+                      <WeightField p={p} qty={qty} />
+                      <button className="icon-btn icon-btn-sm" onClick={() => actions.setCartQty(p.id, 0)} aria-label={`Quitar ${p.name}`}>
+                        <Trash size={16} weight="bold" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="stepper">
+                      <button onClick={() => actions.setCartQty(p.id, qty - 1)} aria-label={`Quitar ${p.name}`}>
+                        <Minus size={14} weight="bold" />
+                      </button>
+                      <span>{qtyLabel(qty, p.unit)}</span>
+                      <button onClick={() => actions.addToCart(p.id, 1)} aria-label={`Agregar ${p.name}`} disabled={actions.available(p.id) < 1}>
+                        <Plus size={14} weight="bold" />
+                      </button>
+                    </div>
+                  )}
                   <strong className="tl-total">{clp(p.price * qty)}</strong>
                 </li>
               );
@@ -270,6 +405,7 @@ export default function Vender() {
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState("Todos");
   const [scanning, setScanning] = useState(false);
+  const [weighing, setWeighing] = useState(null);
   const stats = useMemo(() => dayStats(state.sales), [state.sales]);
   const cartCount = state.cart.length;
 
@@ -278,8 +414,9 @@ export default function Vender() {
   );
 
   function add(p) {
-    const step = 1;
-    const got = actions.addToCart(p.id, step);
+    // A granel se pesa: el peso real casi nunca es exacto.
+    if (p.unit === "kg") return setWeighing(p);
+    const got = actions.addToCart(p.id, 1);
     if (!got) toast(`No queda stock de ${p.name}.`, "sad");
   }
 
@@ -364,6 +501,7 @@ export default function Vender() {
       )}
 
       <CameraScanner open={scanning} onClose={() => setScanning(false)} />
+      <WeighModal product={weighing} onClose={() => setWeighing(null)} />
     </div>
   );
 }

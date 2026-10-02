@@ -57,14 +57,14 @@ Para configurar la voz natural, usar la cámara en el iPad y publicar en Vercel,
 
 ## Requisitos del cliente y estado
 
-Los requisitos están en `recursos/cliente/INSTRUCCIONES FINALES.png`. Se validan de forma automática con `npm run validar` (dentro de `alma-web/`, con la app corriendo). Última corrida: **33 pruebas OK, 0 fallas y 1 pendiente**, en tres tamaños de pantalla (iPad 13" horizontal, iPad vertical y celular).
+Los requisitos están en `recursos/cliente/INSTRUCCIONES FINALES.png`. Se validan de forma automática con `npm run validar` (dentro de `alma-web/`, con la app corriendo). Última corrida: **36 pruebas OK, 0 fallas y 1 pendiente**, en tres tamaños de pantalla (iPad 13" horizontal, iPad vertical y celular).
 
 | # | Requisito | Estado | Dónde |
 | --- | --- | --- | --- |
 | 1 | Voz de mujer cálida y natural, modismos chilenos sin exagerar, sin tecnicismos. La voz sale desde donde se muestra Alma y mueve la boca. | ✅ Boca animada, globo junto a su cara y lenguaje sin tecnicismos. ⏳ La voz "real" en todos los equipos necesita una clave de voz en la nube (Azure "Catalina" es-CL recomendada); sin clave, usa la voz del dispositivo. | `src/lib/voice.js`, `src/components/AlmaLive.jsx`, `src/lib/alma.js` |
 | 2 | Cámara que detecte 3 productos (arroz, Coca-Cola, galletas), con webcam conectada al iPad | ✅ Se le enseñan los productos y luego los reconoce y anota en la boleta, todo en el navegador. Permite elegir la webcam. ⏳ Falta probar la precisión con los productos reales en el iPad. | `src/components/CameraScanner.jsx`, `src/lib/vision.js` |
 | 3 | Inicio = la cara de Alma sobre fondo claro: se le habla directamente o se aprieta para ver sus funciones | ✅ | `src/pages/Inicio.jsx` |
-| 4 | Inventario que se descuenta solo con cada venta y al que se le pueden sumar unidades | ✅ | `src/pages/Inventario.jsx`, `src/pages/Vender.jsx` |
+| 4 | Inventario que se descuenta solo con cada venta y al que se le pueden sumar unidades | ✅ Incluye los productos a granel, que se venden con el peso exacto de la pesa (por ejemplo, 0,735 kg) | `src/pages/Inventario.jsx`, `src/pages/Vender.jsx` |
 | 5 | Notificaciones push simuladas: pedir más pan, subir el arroz Banquete | ✅ Las dos, en secuencia, dichas por Alma y con acción directa | `src/components/Push.jsx` |
 | 6 | Dashboard al cerrar el día: cuánto se vendió, margen, comparación con el día promedio, datos clave | ✅ Además: arqueo de caja, ventas por hora, lo más vendido y consejo para mañana | `src/pages/Cierre.jsx` |
 | 7 | Entrega antes del 26 de octubre | 🟢 Prototipo funcional listo el 2 de octubre | — |
