@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alma - Terminal de Mostrador</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #1e1a17;
+      overflow: hidden;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Compilador Babel para ejecutar React en el navegador -->
+  <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
+
+  <!-- Aplicación React completa con Lucide Icons -->
+  <script type="text/babel" data-type="module">
+    import React, { useState, useRef, useEffect, useCallback, useMemo } from "https://esm.sh/react@18.2.0";
+    import { createRoot } from "https://esm.sh/react-dom@18.2.0/client";
+    import {
+      Mic,
+      ArrowLeft,
+      Send,
+      Camera,
+      Package,
+      BarChart3,
+      Plus,
+      Minus,
+      Trash2,
+      Check,
+      AlertTriangle,
+      Sparkles,
+      TrendingUp,
+      TrendingDown,
+      ShoppingCart,
+      RefreshCw,
+      Bell,
+      ArrowUpRight,
+      Lightbulb,
+      X,
+      Volume2,
+      VolumeX,
+      DollarSign,
+      Calendar,
+      CheckCircle2,
+      Search,
+      Award,
+      BookOpen,
+      Printer,
+    } from "https://esm.sh/lucide-react@0.344.0";
+
+    // Catálogo equilibrado: solo 'p2' (Pan Hallulla) parte en nivel crítico (3 u.)
+    const INITIAL_INVENTORY = [
+      { id: "p1", name: "Coca-Cola 350ml", emoji: "🥤", price: 950, cost: 620, stock: 22, category: "Bebidas", salesSpeed: "alta" },
+      { id: "p2", name: "Pan Hallulla (kg)", emoji: "🥖", price: 1900, cost: 1300, stock: 3, category: "Panadería", salesSpeed: "muy alta" }, // ÚNICO CRÍTICO
+      { id: "p3", name: "Pan Marraqueta (kg)", emoji: "🥖", price: 1950, cost: 1320, stock: 18, category: "Panadería", salesSpeed: "muy alta" },
+      { id: "p4", name: "Leche Entera Colun 1L", emoji: "🥛", price: 1250, cost: 890, stock: 15, category: "Lácteos", salesSpeed: "media" },
+      { id: "p5", name: "Huevos de Campo x12", emoji: "🥚", price: 3800, cost: 2700, stock: 14, category: "Abarrotes", salesSpeed: "alta" },
+      { id: "p6", name: "Aceite Maravilla 900ml", emoji: "🌻", price: 2590, cost: 1950, stock: 12, category: "Abarrotes", salesSpeed: "media" },
+      { id: "p7", name: "Papas Lays Clásicas 150g", emoji: "🍟", price: 1600, cost: 1050, stock: 16, category: "Snacks", salesSpeed: "alta" },
+      { id: "p8", name: "Ramitas Queso 150g", emoji: "🧀", price: 1400, cost: 900, stock: 14, category: "Snacks", salesSpeed: "alta" },
+      { id: "p9", name: "Agua Mineral Cachantun 500ml", emoji: "💧", price: 700, cost: 380, stock: 24, category: "Bebidas", salesSpeed: "media" },
+      { id: "p10", name: "Cerveza Cristal 350ml", emoji: "🍺", price: 1100, cost: 720, stock: 26, category: "Bebidas", salesSpeed: "alta" },
+      { id: "p11", name: "Cerveza Kunstmann 330ml", emoji: "🍻", price: 1950, cost: 1350, stock: 12, category: "Bebidas", salesSpeed: "baja" },
+      { id: "p12", name: "Detergente Omo 1kg", emoji: "🧴", price: 3400, cost: 2350, stock: 10, category: "Aseo", salesSpeed: "baja" },
+      { id: "p13", name: "Lavalozas Quix 500ml", emoji: "🧼", price: 1800, cost: 1150, stock: 15, category: "Aseo", salesSpeed: "media" },
+      { id: "p14", name: "Arroz Grano Largo 1kg", emoji: "🍚", price: 1850, cost: 1250, stock: 18, category: "Abarrotes", salesSpeed: "media" },
+      { id: "p15", name: "Fideos Carozzi 400g", emoji: "🍝", price: 1050, cost: 680, stock: 25, category: "Abarrotes", salesSpeed: "media" },
+      { id: "p16", name: "Salsa de Tomate 200g", emoji: "🥫", price: 650, cost: 390, stock: 20, category: "Abarrotes", salesSpeed: "alta" },
+      { id: "p17", name: "Azúcar Iansa 1kg", emoji: "🍬", price: 1450, cost: 980, stock: 16, category: "Abarrotes", salesSpeed: "media" },
+      { id: "p18", name: "Té Club x20 bolsitas", emoji: "🫖", price: 990, cost: 610, stock: 18, category: "Abarrotes", salesSpeed: "media" },
+      { id: "p19", name: "Café Nescafé 100g", emoji: "☕", price: 3200, cost: 2200, stock: 11, category: "Abarrotes", salesSpeed: "baja" },
+      { id: "p20", name: "Yogurt Batido 1L", emoji: "🥣", price: 1750, cost: 1180, stock: 14, category: "Lácteos", salesSpeed: "baja" },
+      { id: "p21", name: "Queso Gouda Laminado 250g", emoji: "🧀", price: 2600, cost: 1750, stock: 12, category: "Lácteos", salesSpeed: "alta" },
+      { id: "p22", name: "Galletas Morocha", emoji: "🍪", price: 850, cost: 510, stock: 19, category: "Snacks", salesSpeed: "alta" },
+      { id: "p23", name: "Super 8 Clásico", emoji: "🍫", price: 400, cost: 210, stock: 35, category: "Snacks", salesSpeed: "muy alta" },
+      { id: "p24", name: "Bebida Bilz 1.5L", emoji: "🥤", price: 1700, cost: 1150, stock: 15, category: "Bebidas", salesSpeed: "alta" },
+    ];
+
+    const SCAN_QUEUE = [
+      "p1", "p2", "p5", "p8", "p6", "p23", "p4", "p21", "p3", "p15", "p7", "p16", "p2"
+    ];
+
+    const SUGGESTED_QUESTIONS = [
+      "¿Cómo van las ventas hoy comparadas con la semana pasada?",
+      "¿Qué productos tengo que encargar antes de que se me acaben?",
+      "¿Qué precios me conviene subir para no regalar mi margen?",
+      "¿Cuánta plata tengo que guardar para arriendo y proveedores?",
+      "¿Cuánto me deben anotado en el cuaderno de fiados?",
+      "¿A qué hora viene más gente a comprar?",
+      "¿Cuánto gané limpio hoy descontando costos?",
+    ];
+
+    // Registro acumulado de la semana pasada rondando los 800.000 CLP
+    const LAST_WEEK_SAME_DAY_TOTAL = 824500;
+    const LAST_WEEK_SAME_DAY_ORDERS = 142;
+
+    const FIADOS_CUADERNO = [
+      { nombre: "Don Carlos (Vecino taller)", deuda: 14500, fecha: "Ayer" },
+      { nombre: "Sra. Gladys (Casa esquina)", deuda: 9800, fecha: "Hace 2 días" },
+      { nombre: "Profe Manuel", deuda: 6200, fecha: "Hoy" },
+      { nombre: "Tía Rosita", deuda: 4500, fecha: "Hace 4 días" },
+    ];
+
+    function formatCLP(n) {
+      return `$${Math.round(n || 0).toLocaleString("es-CL")}`;
+    }
+
+    function greetingForNow() {
+      const h = new Date().getHours();
+      if (h < 12) return "Buenos días";
+      if (h < 19) return "Buenas tardes";
+      return "Buenas noches";
+    }
+
+    // Rostro oficial vectorizado fiel al diseño de marca de Alma
+    function AlmaFace({ size = 180, isListening = false, isThinking = false }) {
+      return (
+        <svg
+          width={size}
+          height={size * 1.15}
+          viewBox="0 0 320 370"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          style={{
+            transform: isThinking ? "scale(1.02) rotate(-1deg)" : isListening ? "scale(1.03)" : "scale(1)",
+            transition: "transform 0.3s ease",
+          }}
+        >
+          {/* Borde exterior blanco de sticker */}
+          <path
+            d="M 148 18 
+               C 76 18, 38 68, 34 144 
+               C 30 216, 44 260, 80 300 
+               C 112 334, 142 344, 178 344 
+               C 214 344, 238 334, 252 312 
+               L 282 312 
+               C 294 312, 298 296, 298 274 
+               C 302 198, 294 130, 274 80 
+               C 252 28, 206 18, 148 18 Z"
+            fill="#FFFFFF"
+            stroke="#FFFFFF"
+            strokeWidth="16"
+            strokeLinejoin="round"
+          />
+
+          {/* Cabellera negra envolvente */}
+          <path
+            d="M 148 24 
+               C 86 24, 48 70, 44 146 
+               C 40 220, 52 260, 84 296 
+               C 74 264, 70 214, 74 150 
+               C 78 126, 88 96, 114 68 
+               C 134 46, 160 40, 180 52 
+               C 202 66, 222 96, 234 132 
+               C 246 168, 254 220, 254 274 
+               L 282 274 
+               C 284 196, 278 134, 260 86 
+               C 240 36, 198 24, 148 24 Z"
+            fill="#111111"
+          />
+
+          {/* Mechón inferior derecho cortado */}
+          <path d="M 224 268 L 282 268 L 282 310 L 224 310 Z" fill="#111111" />
+
+          {/* Base del rostro */}
+          <path
+            d="M 114 68 
+               C 88 96, 78 126, 74 150 
+               C 70 214, 74 264, 84 296 
+               C 114 330, 142 338, 178 338 
+               C 214 338, 236 324, 248 288 
+               C 254 246, 254 188, 234 132 
+               C 222 96, 202 66, 180 52 
+               C 160 40, 134 46, 114 68 Z"
+            fill="#F6F3EE"
+          />
+
+          {/* Franja blanca interior del lado derecho del pelo */}
+          <path
+            d="M 234 132 
+               C 252 178, 252 232, 234 292 
+               C 242 272, 248 238, 246 196 
+               C 244 164, 240 144, 234 132 Z"
+            fill="#F6F3EE"
+          />
+
+          {/* Ceja izquierda continua con la línea vertical de la nariz */}
+          <path
+            d="M 76 138 
+               C 96 112, 132 114, 148 136 
+               L 150 220 
+               L 174 220 
+               L 174 204 
+               L 162 204"
+            stroke="#111111"
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+
+          {/* Ojo izquierdo redondo / almendrado */}
+          <path
+            d="M 78 168 
+               C 92 144, 122 144, 136 168 
+               C 126 178, 92 180, 78 168 Z"
+            fill="#111111"
+          />
+
+          {/* Ceja derecha horizontal ligeramente arqueada */}
+          <path
+            d="M 174 152 
+               C 198 140, 226 142, 238 148"
+            stroke="#111111"
+            strokeWidth="9"
+            strokeLinecap="round"
+            fill="none"
+          />
+
+          {/* Ojo derecho: trazo superior + pupila cuadrada/bloque */}
+          <path
+            d="M 180 168 
+               C 198 156, 228 156, 240 168"
+            stroke="#111111"
+            strokeWidth="8"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <rect x="194" y="165" width="26" height="24" rx="4" fill="#111111" />
+
+          {/* Sonrisa acogedora */}
+          <path
+            d="M 114 256 
+               C 134 266, 150 262, 164 252 
+               C 178 262, 196 266, 214 250"
+            stroke="#111111"
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+          <path
+            d="M 134 274 
+               C 150 282, 178 282, 194 274"
+            stroke="#111111"
+            strokeWidth="7"
+            strokeLinecap="round"
+            fill="none"
+          />
+        </svg>
+      );
+    }
+
+    function App() {
+      const [screen, setScreen] = useState("home");
+      const [inventory, setInventory] = useState(INITIAL_INVENTORY);
+      const [cart, setCart] = useState([]);
+      const [salesLog, setSalesLog] = useState([
+        {
+          id: 101,
+          time: new Date(Date.now() - 3600000 * 4.5),
+          items: [
+            { id: "p2", name: "Pan Hallulla (kg)", qty: 2, price: 1900 },
+            { id: "p4", name: "Leche Entera Colun 1L", qty: 1, price: 1250 },
+            { id: "p23", name: "Super 8 Clásico", qty: 2, price: 400 },
+          ],
+          total: 5850,
+          paymentMethod: "Efectivo",
+        },
+        {
+          id: 102,
+          time: new Date(Date.now() - 3600000 * 3),
+          items: [
+            { id: "p1", name: "Coca-Cola 350ml", qty: 2, price: 950 },
+            { id: "p7", name: "Papas Lays Clásicas 150g", qty: 1, price: 1600 },
+          ],
+          total: 3500,
+          paymentMethod: "Débito / POS",
+        },
+        {
+          id: 103,
+          time: new Date(Date.now() - 3600000 * 1.5),
+          items: [
+            { id: "p5", name: "Huevos de Campo x12", qty: 1, price: 3800 },
+            { id: "p6", name: "Aceite Maravilla 900ml", qty: 1, price: 2590 },
+          ],
+          total: 6390,
+          paymentMethod: "Efectivo",
+        },
+        {
+          id: 104,
+          time: new Date(Date.now() - 3600000 * 0.4),
+          items: [
+            { id: "p21", name: "Queso Gouda Laminado 250g", qty: 1, price: 2600 },
+            { id: "p3", name: "Pan Marraqueta (kg)", qty: 1.5, price: 1950 },
+            { id: "p18", name: "Té Club x20 bolsitas", qty: 1, price: 990 },
+          ],
+          total: 5540,
+          paymentMethod: "Débito / POS",
+        },
+      ]);
+
+      const [scanState, setScanState] = useState("idle");
+      const [scanQueueIndex, setScanQueueIndex] = useState(0);
+      const [activePushNotification, setActivePushNotification] = useState(null);
+      const [dismissedNotifications, setDismissedNotifications] = useState(new Set());
+      const [toast, setToast] = useState(null);
+      const [showCloseDayModal, setShowCloseDayModal] = useState(false);
+      const [selectedCategory, setSelectedCategory] = useState("Todos");
+      const [searchQuery, setSearchQuery] = useState("");
+      const [voiceEnabled, setVoiceEnabled] = useState(true);
+
+      const [messages, setMessages] = useState([
+        {
+          id: "greet",
+          role: "alma",
+          text: `${greetingForNow()}, casero. Ya cuadré los números: la semana pasada estuvimos cerca de los $824.000 y hoy el ritmo viene excelente. Lo único urgente es el Pan Hallulla, que le van quedando 3 kilos. ¿En qué te ayudo?`,
+        },
+      ]);
+      const [inputText, setInputText] = useState("");
+      const [isListening, setIsListening] = useState(false);
+      const [isThinking, setIsThinking] = useState(false);
+
+      const recognitionRef = useRef(null);
+      const inputRef = useRef(null);
+      const messagesEndRef = useRef(null);
+      const toastTimerRef = useRef(null);
+
+      // Reproducción de voz natural en español de Chile
+      const speakAlmaVoice = useCallback((text) => {
+        if (!voiceEnabled || !window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "es-CL";
+        utterance.rate = 1.05;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }, [voiceEnabled]);
+
+      // Notificación Push controlada: solo 1 producto, sin bombardeo
+      useEffect(() => {
+        const lowStockItems = inventory.filter(
+          (p) => p.stock <= 4 && !dismissedNotifications.has(p.id)
+        );
+        if (lowStockItems.length > 0 && !activePushNotification) {
+          const target = lowStockItems[0];
+          const timer = setTimeout(() => {
+            setActivePushNotification({
+              id: target.id,
+              title: `¡Atención con ${target.name}!`,
+              message: `Te van quedando solo ${target.stock} unidades en mostrador. ¿Quieres encargar 20 unidades ahora para no quedarte sin stock en la once?`,
+              qtyToOrder: 20,
+            });
+          }, 2400);
+          return () => clearTimeout(timer);
+        }
+      }, [inventory, activePushNotification, dismissedNotifications]);
+
+      useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, [messages, isThinking]);
+
+      const showToast = useCallback((text, ms = 2800) => {
+        setToast(text);
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = setTimeout(() => setToast(null), ms);
+      }, []);
+
+      function handleReorder(productId, qty) {
+        setInventory((prev) =>
+          prev.map((item) => (item.id === productId ? { ...item, stock: item.stock + qty } : item))
+        );
+        setDismissedNotifications((prev) => new Set(prev).add(productId));
+        const prod = inventory.find((p) => p.id === productId);
+        showToast(`Pedido registrado: +${qty} u. de ${prod?.name || "producto"}.`);
+        setActivePushNotification(null);
+      }
+
+      function handleDismissNotification(productId) {
+        setDismissedNotifications((prev) => new Set(prev).add(productId));
+        setActivePushNotification(null);
+      }
+
+      function handlePriceAdjust(productId, newPrice, reason) {
+        setInventory((prev) =>
+          prev.map((item) => (item.id === productId ? { ...item, price: newPrice } : item))
+        );
+        showToast(`Precio ajustado a ${formatCLP(newPrice)}. Margen protegido.`);
+      }
+
+      function availableStock(productId, cartOverride) {
+        const c = cartOverride || cart;
+        const prod = inventory.find((p) => p.id === productId);
+        const inCart = c.find((x) => x.id === productId);
+        return (prod ? prod.stock : 0) - (inCart ? inCart.qty : 0);
+      }
+
+      // Métricas en tiempo real
+      const totalHoy = useMemo(() => salesLog.reduce((s, v) => s + v.total, 0), [salesLog]);
+      const orderCount = salesLog.length;
+      const ticketPromedio = orderCount > 0 ? totalHoy / orderCount : 0;
+
+      const costoEstimadoHoy = useMemo(() => {
+        return salesLog.reduce((acc, sale) => {
+          const saleCost = sale.items.reduce((sAcc, it) => {
+            const prod = inventory.find((p) => p.id === it.id);
+            return sAcc + (prod ? prod.cost * it.qty : it.price * 0.7 * it.qty);
+          }, 0);
+          return acc + saleCost;
+        }, 0);
+      }, [salesLog, inventory]);
+
+      const gananciaLimpiaHoy = totalHoy - costoEstimadoHoy;
+      const margenPorcentaje = totalHoy > 0 ? (gananciaLimpiaHoy / totalHoy) * 100 : 33.5;
+
+      const currentHour = new Date().getHours() + new Date().getMinutes() / 60;
+      const hoursPassed = Math.max(2, Math.min(12, currentHour - 8.5));
+      const proyeccionCierre = (totalHoy / hoursPassed) * 12.5;
+
+      const lowStockProducts = useMemo(() => inventory.filter((p) => p.stock <= 4), [inventory]);
+      const totalFiados = useMemo(() => FIADOS_CUADERNO.reduce((s, f) => s + f.deuda, 0), []);
+
+      const priceRecommendations = useMemo(() => {
+        return [
+          {
+            id: "p2",
+            name: "Pan Hallulla (kg)",
+            currentPrice: 1900,
+            suggestedPrice: 2050,
+            type: "subir",
+            badge: "Alta demanda",
+            reason: "La harina subió 6% y vendes casi toda la hornada antes de las 13:00 hrs.",
+            extraProfit: "+$150 por kg",
+          },
+          {
+            id: "p6",
+            name: "Aceite Maravilla 900ml",
+            currentPrice: 2590,
+            suggestedPrice: 2790,
+            type: "subir",
+            badge: "Alza mayorista",
+            reason: "Llegó factura con costo en $1.950. Si mantienes precio ganas menos del 24%.",
+            extraProfit: "+$200 margen",
+          },
+          {
+            id: "p20",
+            name: "Yogurt Batido 1L",
+            currentPrice: 1750,
+            suggestedPrice: 1550,
+            type: "bajar",
+            badge: "Rotación lenta",
+            reason: "Lleva 3 días con baja salida. Bajarlo $200 previene vencimiento y libera caja.",
+            extraProfit: "Evita merma",
+          },
+        ];
+      }, []);
+
+      function localAnswer(text) {
+        const t = text.toLowerCase();
+        if (t.includes("semana") || t.includes("pasad") || t.includes("compar")) {
+          return `La semana pasada completa registramos ${formatCLP(LAST_WEEK_SAME_DAY_TOTAL)} en ventas, promediando unos ${formatCLP(LAST_WEEK_SAME_DAY_TOTAL / 7)} diarios. Hoy llevas ${formatCLP(totalHoy)} en ${orderCount} ventas, así que vamos con excelente ritmo.`;
+        }
+        if (t.includes("encarg") || t.includes("falta") || t.includes("acab") || t.includes("stock")) {
+          return lowStockProducts.length
+            ? `Casero, lo único crítico ahora es el ${lowStockProducts.map((p) => `${p.name} (${p.stock} u)`).join(", ")}. El resto del inventario está completamente abastecido.`
+            : "Estamos impecables de stock en todas las categorías, no hace falta pedir nada por ahora.";
+        }
+        if (t.includes("precio") || t.includes("subir") || t.includes("margen") || t.includes("ajust")) {
+          return `Te sugiero retocar el Aceite Maravilla a $2.790 porque subió el costo en la última factura de distribuidora, y subir el pan a $2.050/kg para resguardar tu margen.`;
+        }
+        if (t.includes("fiad") || t.includes("debe") || t.includes("cuaderno")) {
+          return `En el cuaderno tienes ${formatCLP(totalFiados)} anotados entre 4 vecinos. El monto más alto es de Don Carlos con ${formatCLP(14500)}. Te conviene recordarle cuando pase en la tarde.`;
+        }
+        if (t.includes("guardar") || t.includes("arriendo") || t.includes("cuent") || t.includes("proveed")) {
+          const reserva = totalHoy * 0.35;
+          return `De lo cobrado hoy (${formatCLP(totalHoy)}), guarda ${formatCLP(reserva)} en el sobre de cuentas. Así pagas sin apuros los pedidos de abarrotes del jueves y el arriendo.`;
+        }
+        if (t.includes("hora") || t.includes("gente") || t.includes("peak") || t.includes("movim")) {
+          return `Tus dos horarios más movidos son entre 12:30 y 14:00 (por bebidas y cecinas) y entre 18:30 y 20:45 cuando los vecinos vienen por el pan fresco.`;
+        }
+        if (t.includes("gan") || t.includes("limpi") || t.includes("bolsillo")) {
+          return `De los ${formatCLP(totalHoy)} que entraron a la caja, descontando el costo al por mayor de los productos, te quedan unos ${formatCLP(gananciaLimpiaHoy)} limpios en el bolsillo (${margenPorcentaje.toFixed(1)}% de margen).`;
+        }
+        if (t.includes("ticket") || t.includes("promedio") || t.includes("proyecc")) {
+          return `El ticket promedio está saliendo en ${formatCLP(ticketPromedio)} por compra. Al ritmo actual proyectamos cerrar el día sobre los ${formatCLP(proyeccionCierre)}.`;
+        }
+
+        return `Llevamos ${formatCLP(totalHoy)} en ${orderCount} ventas hoy. Pregúntame sobre stock, precios a retocar, fiados pendientes o la ganancia limpia del turno.`;
+      }
+
+      function handleUserSubmit(rawText) {
+        const text = rawText.trim();
+        if (!text) return;
+        setInputText("");
+        setMessages((prev) => [...prev, { id: Date.now(), role: "user", text }]);
+        setIsThinking(true);
+        setTimeout(() => {
+          const answer = localAnswer(text);
+          setMessages((prev) => [...prev, { id: Date.now() + 1, role: "alma", text: answer }]);
+          setIsThinking(false);
+          speakAlmaVoice(answer);
+        }, 500);
+      }
+
+      function toggleListen() {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) {
+          inputRef.current?.focus();
+          return;
+        }
+        if (isListening) {
+          recognitionRef.current?.stop();
+          setIsListening(false);
+          return;
+        }
+        try {
+          const rec = new SR();
+          rec.lang = "es-CL";
+          rec.interimResults = false;
+          rec.maxAlternatives = 1;
+          rec.onstart = () => setIsListening(true);
+          rec.onresult = (e) => {
+            const transcript = e.results[0][0].transcript;
+            setIsListening(false);
+            handleUserSubmit(transcript);
+          };
+          rec.onerror = () => setIsListening(false);
+          rec.onend = () => setIsListening(false);
+          recognitionRef.current = rec;
+          rec.start();
+        } catch {
+          setIsListening(false);
+          inputRef.current?.focus();
+        }
+      }
+
+      function handleScan() {
+        if (scanState !== "idle") return;
+        setScanState("scanning");
+        setTimeout(() => {
+          let found = null;
+          let foundQueueIdx = null;
+          for (let i = 0; i < SCAN_QUEUE.length; i++) {
+            const tryIdx = (scanQueueIndex + i) % SCAN_QUEUE.length;
+            const pid = SCAN_QUEUE[tryIdx];
+            if (availableStock(pid) > 0) {
+              found = pid;
+              foundQueueIdx = tryIdx + 1;
+              break;
+            }
+          }
+          if (!found) {
+            setScanState("empty");
+            showToast("No queda stock disponible para escanear más.");
+            setTimeout(() => setScanState("idle"), 1300);
+            return;
+          }
+          setScanQueueIndex(foundQueueIdx);
+          const prod = inventory.find((p) => p.id === found);
+          const inCartQty = cart.find((c) => c.id === found)?.qty || 0;
+          const avail = prod.stock - inCartQty - 1;
+          const cartTotalAfter = cart.reduce((s, c) => s + c.price * c.qty, 0) + prod.price;
+
+          setCart((prev) => {
+            const existing = prev.find((c) => c.id === found);
+            if (existing) return prev.map((c) => (c.id === found ? { ...c, qty: c.qty + 1 } : c));
+            return [...prev, { id: prod.id, name: prod.name, emoji: prod.emoji, price: prod.price, qty: 1 }];
+          });
+          showToast(`Anoté ${prod.name}. Quedan ${avail} u. Total cuenta: ${formatCLP(cartTotalAfter)}`);
+          setScanState("detected");
+          setTimeout(() => setScanState("idle"), 900);
+        }, 800);
+      }
+
+      function changeCartQty(id, delta) {
+        setCart((prev) =>
+          prev
+            .map((c) => (c.id === id ? { ...c, qty: c.qty + delta } : c))
+            .filter((c) => c.qty > 0)
+        );
+      }
+
+      function handleCheckout(method = "Efectivo") {
+        if (cart.length === 0) return;
+        const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
+        setInventory((prev) =>
+          prev.map((p) => {
+            const c = cart.find((x) => x.id === p.id);
+            return c ? { ...p, stock: p.stock - c.qty } : p;
+          })
+        );
+        setSalesLog((prev) => [
+          { id: Date.now(), time: new Date(), items: cart, total, paymentMethod: method },
+          ...prev,
+        ]);
+        showToast(`¡Venta cobrada por ${formatCLP(total)} (${method})!`);
+        setCart([]);
+      }
+
+      function executeCloseDay() {
+        setSalesLog([]);
+        setCart([]);
+        setShowCloseDayModal(false);
+        showToast("¡Día cerrado con éxito! Caja reiniciada a $0 para mañana.");
+        setScreen("home");
+      }
+
+      const cartTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+      const cartCount = cart.reduce((s, c) => s + c.qty, 0);
+
+      // Filtrado para inventario
+      const filteredInventory = useMemo(() => {
+        return inventory.filter((item) => {
+          const matchesCategory = selectedCategory === "Todos" || item.category === selectedCategory;
+          const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+          return matchesCategory && matchesSearch;
+        });
+      }, [inventory, selectedCategory, searchQuery]);
+
+      const categories = ["Todos", "Panadería", "Abarrotes", "Bebidas", "Lácteos", "Snacks", "Aseo"];
+
+      return (
+        <div className="alma-root">
+          <style>{`
+            @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Caveat:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
+
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+
+            .alma-root {
+              --pink-a: #ff007a;
+              --pink-b: #ff2440;
+              --paper: #f4ede6;
+              --ink: #141210;
+              --cream: #faf6f0;
+              --card-bg: #ffffff;
+              --purple: #7c3aed;
+              --green: #15803d;
+              --green-bg: #eaf8ee;
+              --amber: #b45309;
+              --red: #b91c1c;
+              --red-bg: #fee2e2;
+              --border-ui: #e8ded4;
+              font-family: 'Inter', system-ui, -apple-system, sans-serif;
+              width: 100vw;
+              height: 100vh;
+              background: #231e1a;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              overflow: hidden;
+              padding: 16px;
+            }
+
+            .terminal-landscape {
+              width: 1180px;
+              max-width: 98vw;
+              height: 730px;
+              max-height: 96vh;
+              background: var(--paper);
+              border-radius: 28px;
+              border: 8px solid var(--ink);
+              box-shadow: 0 35px 80px rgba(0,0,0,0.6);
+              display: flex;
+              overflow: hidden;
+              position: relative;
+            }
+
+            .sidebar {
+              width: 240px;
+              background: var(--ink);
+              color: white;
+              display: flex;
+              flex-direction: column;
+              padding: 20px 14px;
+              flex-shrink: 0;
+              border-right: 2px solid rgba(255,255,255,0.06);
+              justify-content: space-between;
+            }
+
+            .sidebar-brand {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              padding: 4px 6px 18px;
+              border-bottom: 1px solid rgba(255,255,255,0.12);
+            }
+
+            .brand-title {
+              font-family: 'Archivo Black', sans-serif;
+              font-size: 22px;
+              color: white;
+              line-height: 1;
+            }
+
+            .brand-badge {
+              font-size: 10px;
+              font-weight: 700;
+              color: #ff4772;
+              text-transform: uppercase;
+            }
+
+            .nav-list {
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+              margin-top: 16px;
+              flex: 1;
+            }
+
+            .nav-item {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              padding: 11px 14px;
+              border-radius: 14px;
+              background: transparent;
+              border: none;
+              color: #b8aba0;
+              font-size: 13.5px;
+              font-weight: 700;
+              cursor: pointer;
+              transition: all 0.15s ease;
+              text-align: left;
+            }
+
+            .nav-item:hover {
+              background: rgba(255,255,255,0.06);
+              color: white;
+            }
+
+            .nav-item.active {
+              background: linear-gradient(135deg, var(--pink-a), var(--pink-b));
+              color: white;
+              box-shadow: 0 6px 16px rgba(255,36,64,0.35);
+            }
+
+            .sidebar-btn-close-day {
+              background: #2a2420;
+              border: 1px solid #4a3e35;
+              color: #f7eee4;
+              border-radius: 14px;
+              padding: 12px 14px;
+              font-size: 13px;
+              font-weight: 800;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+              cursor: pointer;
+              margin-bottom: 12px;
+              transition: background 0.2s;
+            }
+
+            .sidebar-btn-close-day:hover {
+              background: #ff2440;
+              border-color: #ff2440;
+              color: white;
+            }
+
+            .main-viewport {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              min-width: 0;
+              position: relative;
+              background: var(--paper);
+            }
+
+            .terminal-top-bar {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              padding: 14px 24px;
+              background: var(--card-bg);
+              border-bottom: 1px solid var(--border-ui);
+              flex-shrink: 0;
+            }
+
+            .live-clock {
+              font-size: 13px;
+              font-weight: 700;
+              color: var(--ink);
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+
+            .live-indicator {
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              background: var(--green-bg);
+              color: var(--green);
+              font-size: 11.5px;
+              padding: 4px 10px;
+              border-radius: 100px;
+              font-weight: 700;
+            }
+
+            /* Notificación push superior */
+            .push-notification-banner {
+              position: absolute;
+              top: 14px;
+              left: 24px;
+              right: 24px;
+              background: #191614;
+              color: white;
+              border-radius: 18px;
+              padding: 14px 18px;
+              box-shadow: 0 16px 36px rgba(0,0,0,0.38);
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              z-index: 50;
+              border: 1px solid rgba(255,255,255,0.15);
+              animation: slide-banner 0.3s ease-out;
+            }
+
+            @keyframes slide-banner {
+              from { transform: translateY(-30px); opacity: 0; }
+              to { transform: translateY(0); opacity: 1; }
+            }
+
+            .push-content {
+              display: flex;
+              align-items: center;
+              gap: 14px;
+            }
+
+            .push-icon-bell {
+              width: 42px;
+              height: 42px;
+              border-radius: 12px;
+              background: #ff2440;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            }
+
+            .home-view {
+              flex: 1;
+              display: grid;
+              grid-template-columns: 370px 1fr;
+              gap: 22px;
+              padding: 22px;
+              min-height: 0;
+              overflow-y: auto;
+            }
+
+            .home-face-panel {
+              background: radial-gradient(130% 110% at 50% 10%, var(--pink-a) 0%, var(--pink-b) 60%, #b80f28 100%);
+              border-radius: 24px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              padding: 24px;
+              text-align: center;
+              color: white;
+              box-shadow: 0 12px 28px rgba(255,36,64,0.25);
+            }
+
+            .face-touch-btn {
+              background: transparent;
+              border: none;
+              cursor: pointer;
+              transition: transform 0.18s ease;
+            }
+
+            .face-touch-btn:hover {
+              transform: scale(1.03);
+            }
+
+            .home-quote {
+              font-family: 'Caveat', cursive;
+              font-size: 27px;
+              font-weight: 700;
+              margin-top: 10px;
+            }
+
+            .home-voice-tag {
+              font-size: 12px;
+              font-weight: 700;
+              background: rgba(0,0,0,0.32);
+              padding: 6px 14px;
+              border-radius: 100px;
+              margin-top: 8px;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            }
+
+            .home-dashboard-column {
+              display: flex;
+              flex-direction: column;
+              gap: 14px;
+              overflow-y: auto;
+            }
+
+            .kpi-row {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 12px;
+            }
+
+            .kpi-box {
+              background: var(--card-bg);
+              border-radius: 18px;
+              padding: 15px;
+              border: 1px solid var(--border-ui);
+            }
+
+            .kpi-label {
+              font-size: 11px;
+              font-weight: 700;
+              color: #7d7268;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+
+            .kpi-val {
+              font-family: 'Archivo Black', sans-serif;
+              font-size: 21px;
+              color: var(--ink);
+              margin: 5px 0 2px;
+            }
+
+            .kpi-sub {
+              font-size: 11.5px;
+              font-weight: 600;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            }
+
+            .kpi-sub.up { color: var(--green); }
+            .kpi-sub.neutral { color: var(--purple); }
+
+            .widget-card {
+              background: var(--card-bg);
+              border-radius: 20px;
+              padding: 16px 18px;
+              border: 1px solid var(--border-ui);
+            }
+
+            .widget-card h3 {
+              font-size: 14px;
+              font-weight: 800;
+              color: var(--ink);
+              margin-bottom: 10px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+            }
+
+            .pos-horizontal-view {
+              flex: 1;
+              display: grid;
+              grid-template-columns: 1fr 380px;
+              gap: 20px;
+              padding: 20px;
+              min-height: 0;
+            }
+
+            .viewfinder-card {
+              background: #181513;
+              border-radius: 22px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              position: relative;
+              overflow: hidden;
+            }
+
+            .scanner-hud {
+              width: 280px;
+              height: 200px;
+              position: relative;
+              border: 2px dashed rgba(255,255,255,0.25);
+              border-radius: 16px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+
+            .laser-bar {
+              position: absolute;
+              left: 10px;
+              right: 10px;
+              height: 3px;
+              background: #ff2440;
+              box-shadow: 0 0 16px 3px #ff2440;
+              animation: laser 1.1s ease-in-out infinite alternate;
+            }
+
+            @keyframes laser {
+              from { top: 15%; }
+              to { top: 85%; }
+            }
+
+            .ticket-panel {
+              background: var(--card-bg);
+              border-radius: 22px;
+              border: 1px solid var(--border-ui);
+              display: flex;
+              flex-direction: column;
+              padding: 16px;
+              min-height: 0;
+            }
+
+            .cart-items-scroll {
+              flex: 1;
+              overflow-y: auto;
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+              margin: 12px 0;
+            }
+
+            .cart-row {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              background: var(--cream);
+              padding: 10px 12px;
+              border-radius: 12px;
+            }
+
+            /* Categorías en inventario */
+            .category-pills-row {
+              display: flex;
+              gap: 8px;
+              margin: 10px 0 16px;
+              overflow-x: auto;
+            }
+
+            .category-pill {
+              background: white;
+              border: 1px solid var(--border-ui);
+              padding: 6px 14px;
+              border-radius: 100px;
+              font-size: 12px;
+              font-weight: 700;
+              color: var(--ink);
+              cursor: pointer;
+              white-space: nowrap;
+            }
+
+            .category-pill.active {
+              background: var(--ink);
+              color: white;
+              border-color: var(--ink);
+            }
+
+            .modal-overlay {
+              position: absolute;
+              inset: 0;
+              background: rgba(18, 15, 12, 0.82);
+              backdrop-filter: blur(4px);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              z-index: 120;
+              padding: 20px;
+            }
+
+            .modal-closing-box {
+              background: #ffffff;
+              width: 780px;
+              max-width: 95%;
+              max-height: 92%;
+              border-radius: 24px;
+              border: 4px solid var(--ink);
+              display: flex;
+              flex-direction: column;
+              overflow: hidden;
+              box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+            }
+
+            .modal-header {
+              background: linear-gradient(135deg, var(--ink), #2b2520);
+              color: white;
+              padding: 18px 24px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+
+            .modal-body {
+              padding: 22px;
+              overflow-y: auto;
+              display: flex;
+              flex-direction: column;
+              gap: 18px;
+            }
+
+            .chart-bar-container {
+              display: flex;
+              align-items: flex-end;
+              gap: 14px;
+              height: 110px;
+              padding: 10px 14px;
+              background: var(--cream);
+              border-radius: 14px;
+            }
+
+            .chart-col {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 6px;
+              height: 100%;
+              justify-content: flex-end;
+            }
+
+            .col-fill {
+              width: 100%;
+              border-radius: 6px 6px 0 0;
+              background: var(--ink);
+              transition: height 0.4s ease;
+            }
+
+            .col-fill.peak {
+              background: linear-gradient(180deg, #ff007a, #ff2440);
+            }
+
+            .toast-landscape {
+              position: absolute;
+              bottom: 24px;
+              right: 24px;
+              background: var(--ink);
+              color: white;
+              padding: 12px 18px;
+              border-radius: 14px;
+              font-size: 13px;
+              font-weight: 600;
+              box-shadow: 0 14px 30px rgba(0,0,0,0.35);
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              z-index: 100;
+              border-left: 4px solid var(--pink-b);
+            }
+          `}</style>
+
+          <div className="terminal-landscape">
+            {/* Barra lateral */}
+            <aside className="sidebar">
+              <div>
+                <div className="sidebar-brand">
+                  <div style={{ width: 42, height: 46, flexShrink: 0 }}>
+                    <AlmaFace size={42} />
+                  </div>
+                  <div>
+                    <div className="brand-title">ALMA</div>
+                    <div className="brand-badge">Mostrador v2.7</div>
+                  </div>
+                </div>
+
+                <nav className="nav-list">
+                  <button className={`nav-item ${screen === "home" ? "active" : ""}`} onClick={() => setScreen("home")}>
+                    <Sparkles size={18} /> Inicio & Asistente
+                  </button>
+                  <button className={`nav-item ${screen === "scan" ? "active" : ""}`} onClick={() => setScreen("scan")}>
+                    <Camera size={18} /> Escanear & Cobro
+                  </button>
+                  <button className={`nav-item ${screen === "inventory" ? "active" : ""}`} onClick={() => setScreen("inventory")}>
+                    <Package size={18} /> Inventario ({inventory.length})
+                  </button>
+                  <button className={`nav-item ${screen === "advisory" ? "active" : ""}`} onClick={() => setScreen("advisory")}>
+                    <Lightbulb size={18} /> Consejos de Precios
+                  </button>
+                  <button className={`nav-item ${screen === "summary" ? "active" : ""}`} onClick={() => setScreen("summary")}>
+                    <BarChart3 size={18} /> Resumen & Métricas
+                  </button>
+                  <button className={`nav-item ${screen === "chat" ? "active" : ""}`} onClick={() => setScreen("chat")}>
+                    <Mic size={18} /> Conversar con Alma
+                  </button>
+                </nav>
+              </div>
+
+              <div>
+                <button className="sidebar-btn-close-day" onClick={() => setShowCloseDayModal(true)}>
+                  <Award size={18} color="#ff4772" />
+                  Cerrar el Día de Caja
+                </button>
+
+                <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: "10px", fontSize: 11, color: "#a89e94", display: "flex", flexDirection: "column", gap: 5 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
+                    <span>Terminal 13"</span>
+                    <span style={{ color: "#22c55e" }}>● En línea</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>Semana pasada:</span>
+                    <span style={{ color: "#f5eee6", fontWeight: 700 }}>{formatCLP(LAST_WEEK_SAME_DAY_TOTAL)}</span>
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            {/* Viewport */}
+            <main className="main-viewport">
+              <header className="terminal-top-bar">
+                <div className="live-clock">
+                  <span className="live-indicator">● Mostrador Activo</span>
+                  <span>Almacén Don Mario · Santiago Centro</span>
+                </div>
+                <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+                  <button
+                    style={{
+                      background: voiceEnabled ? "var(--cream)" : "#fee2e2",
+                      border: "1px solid var(--border-ui)",
+                      borderRadius: 10,
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: voiceEnabled ? "var(--ink)" : "#b91c1c",
+                    }}
+                    onClick={() => {
+                      setVoiceEnabled(!voiceEnabled);
+                      showToast(voiceEnabled ? "Voz de Alma desactivada" : "Voz de Alma activada");
+                    }}
+                    title="Activar/desactivar lectura por voz de Alma"
+                  >
+                    {voiceEnabled ? <Volume2 size={16} color="#15803d" /> : <VolumeX size={16} color="#b91c1c" />}
+                    <span>{voiceEnabled ? "Voz activa" : "En silencio"}</span>
+                  </button>
+
+                  <span style={{ fontSize: "12.5px", color: "#6a6058", fontWeight: 600 }}>
+                    {new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })}
+                  </span>
+                  <span style={{ fontWeight: 800, fontSize: "15px", color: "#141210" }}>
+                    {new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+              </header>
+
+              {/* Notificación única sin bombardeo */}
+              {activePushNotification && (
+                <div className="push-notification-banner">
+                  <div className="push-content">
+                    <div className="push-icon-bell">
+                      <Bell size={20} color="#fff" />
+                    </div>
+                    <div>
+                      <h4 style={{ fontSize: 14, fontWeight: 800 }}>{activePushNotification.title}</h4>
+                      <p style={{ fontSize: 12.5, color: "#d8cec4", marginTop: 2 }}>{activePushNotification.message}</p>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <button
+                      style={{ background: "#22c55e", color: "white", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+                      onClick={() => handleReorder(activePushNotification.id, activePushNotification.qtyToOrder)}
+                    >
+                      <RefreshCw size={14} /> Pedir +{activePushNotification.qtyToOrder} unidades
+                    </button>
+                    <button
+                      style={{ background: "transparent", color: "#a89e94", border: "none", padding: 6, cursor: "pointer" }}
+                      onClick={() => handleDismissNotification(activePushNotification.id)}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* VISTA 1: HOME */}
+              {screen === "home" && (
+                <div className="home-view">
+                  <div className="home-face-panel">
+                    <button className="face-touch-btn" onClick={() => { setScreen("chat"); toggleListen(); }} title="Toca para hablar con Alma">
+                      <AlmaFace size={235} isListening={isListening} isThinking={isThinking} />
+                    </button>
+                    <div className="home-quote">{greetingForNow()}, Mario 👋</div>
+                    <div className="home-voice-tag">
+                      <Volume2 size={14} /> Toca a Alma o habla por micrófono
+                    </div>
+                  </div>
+
+                  <div className="home-dashboard-column">
+                    <div className="kpi-row">
+                      <div className="kpi-box">
+                        <div className="kpi-label">Vendido Hoy</div>
+                        <div className="kpi-val">{formatCLP(totalHoy)}</div>
+                        <div className="kpi-sub up">
+                          <TrendingUp size={13} /> En {orderCount} compras registradas
+                        </div>
+                      </div>
+
+                      <div className="kpi-box">
+                        <div className="kpi-label">Ganancia Limpia</div>
+                        <div className="kpi-val" style={{ color: "#15803d" }}>{formatCLP(gananciaLimpiaHoy)}</div>
+                        <div className="kpi-sub up">
+                          <Award size={13} /> {margenPorcentaje.toFixed(1)}% margen real
+                        </div>
+                      </div>
+
+                      <div className="kpi-box">
+                        <div className="kpi-label">Semana Pasada</div>
+                        <div className="kpi-val">{formatCLP(LAST_WEEK_SAME_DAY_TOTAL)}</div>
+                        <div className="kpi-sub neutral">
+                          <Calendar size={13} /> Prom. diario $117.780
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <div className="widget-card" style={{ background: "#fef8f0", borderColor: "#fde2c7" }}>
+                        <h3 style={{ color: "#9a4c06" }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <BookOpen size={16} /> Cuaderno de Fiados
+                          </span>
+                          <span style={{ fontSize: 13, fontWeight: 800 }}>{formatCLP(totalFiados)}</span>
+                        </h3>
+                        <p style={{ fontSize: 12, color: "#7a4009" }}>
+                          Hay 4 vecinos anotados. El cobro más alto es Don Carlos ({formatCLP(14500)}).
+                        </p>
+                      </div>
+
+                      <div className="widget-card" style={{ background: "#fef2f2", borderColor: "#fecaca" }}>
+                        <h3 style={{ color: "#991b1b" }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <AlertTriangle size={16} /> Stock Crítico ({lowStockProducts.length})
+                          </span>
+                          <button
+                            style={{ background: "#b91c1c", color: "#fff", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 10.5, fontWeight: 700, cursor: "pointer" }}
+                            onClick={() => setScreen("inventory")}
+                          >
+                            Pedir
+                          </button>
+                        </h3>
+                        <p style={{ fontSize: 12, color: "#7f1d1d" }}>
+                          Solo falta: <strong>{lowStockProducts.map((p) => `${p.name} (${p.stock} u)`).join(", ")}</strong>. El resto tiene stock normal.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="widget-card">
+                      <h3>Acciones Directas</h3>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <button
+                          style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "var(--cream)", border: "1px solid var(--border-ui)", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 13, color: "var(--ink)", textAlign: "left" }}
+                          onClick={() => setScreen("scan")}
+                        >
+                          <Camera size={20} color="#ff2440" />
+                          <div>
+                            <div>Escanear Mercadería</div>
+                            <div style={{ fontSize: 11, color: "#8a8078", fontWeight: 500 }}>Anota ventas por cámara</div>
+                          </div>
+                        </button>
+
+                        <button
+                          style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "var(--cream)", border: "1px solid var(--border-ui)", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 13, color: "var(--ink)", textAlign: "left" }}
+                          onClick={() => setShowCloseDayModal(true)}
+                        >
+                          <Award size={20} color="#15803d" />
+                          <div>
+                            <div>Arqueo y Cierre del Día</div>
+                            <div style={{ fontSize: 11, color: "#8a8078", fontWeight: 500 }}>Balance y reinicio de caja</div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* VISTA 2: ESCÁNER */}
+              {screen === "scan" && (
+                <div className="pos-horizontal-view">
+                  <div className="viewfinder-card">
+                    <div className="scanner-hud">
+                      <div className="laser-bar" />
+                      <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, fontWeight: 600 }}>
+                        Apunta la cámara al envase o boleta
+                      </span>
+                    </div>
+                    <button
+                      style={{ marginTop: 20, background: "linear-gradient(135deg, var(--pink-a), var(--pink-b))", color: "white", border: "none", borderRadius: 100, padding: "12px 28px", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
+                      onClick={handleScan}
+                      disabled={scanState !== "idle"}
+                    >
+                      <Camera size={20} />
+                      {scanState === "scanning" ? "Detectando por Edge AI..." : scanState === "detected" ? "¡Producto Anotado!" : "Simular Escaneo de Producto"}
+                    </button>
+                  </div>
+
+                  <div className="ticket-panel">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <h3 style={{ fontSize: 15, fontWeight: 800 }}>Venta en Curso</h3>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#7a6e64" }}>{cartCount} artículos</span>
+                    </div>
+
+                    <div className="cart-items-scroll">
+                      {cart.length === 0 ? (
+                        <div style={{ textAlign: "center", color: "#a89e94", padding: "40px 0", fontSize: 13 }}>
+                          El ticket está vacío.<br />Escanea productos para sumar a la cuenta.
+                        </div>
+                      ) : (
+                        cart.map((it) => (
+                          <div className="cart-row" key={it.id}>
+                            <span style={{ fontSize: 20 }}>{it.emoji}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: 13, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{it.name}</div>
+                              <div style={{ fontSize: 11, color: "#7a6e64" }}>{formatCLP(it.price)} c/u</div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <button onClick={() => changeCartQty(it.id, -1)} style={{ width: 22, height: 22, borderRadius: "50%", border: "none", cursor: "pointer" }}>-</button>
+                              <span style={{ fontWeight: 700, fontSize: 13 }}>{it.qty}</span>
+                              <button onClick={() => changeCartQty(it.id, 1)} style={{ width: 22, height: 22, borderRadius: "50%", border: "none", cursor: "pointer" }}>+</button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div style={{ borderTop: "2px solid var(--paper)", paddingTop: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <span style={{ fontSize: 13, color: "#7a6e64", fontWeight: 700 }}>TOTAL A COBRAR</span>
+                        <span style={{ fontFamily: "Archivo Black", fontSize: 24, color: "#141210" }}>{formatCLP(cartTotal)}</span>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+                        <button
+                          style={{ background: "#141210", color: "white", border: "none", borderRadius: 12, padding: 12, fontWeight: 800, fontSize: 13, cursor: "pointer" }}
+                          disabled={cart.length === 0}
+                          onClick={() => handleCheckout("Efectivo")}
+                        >
+                          Cobrar Efectivo
+                        </button>
+                        <button
+                          style={{ background: "#2563eb", color: "white", border: "none", borderRadius: 12, padding: 12, fontWeight: 800, fontSize: 13, cursor: "pointer" }}
+                          disabled={cart.length === 0}
+                          onClick={() => handleCheckout("Débito / POS")}
+                        >
+                          Cobrar Débito
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* VISTA 3: INVENTARIO CON FILTROS Y BUSCADOR */}
+              {screen === "inventory" && (
+                <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div>
+                      <h2 style={{ fontFamily: "Archivo Black", fontSize: 20 }}>Inventario y Vitrina</h2>
+                      <p style={{ fontSize: 13, color: "#7a6e64" }}>{inventory.length} productos registrados · {lowStockProducts.length} en alerta crítica</p>
+                    </div>
+                    <button
+                      style={{ background: "#141210", color: "white", border: "none", borderRadius: 10, padding: "10px 16px", fontWeight: 700, fontSize: 12.5, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
+                      onClick={() => inventory.forEach((p) => { if (p.stock <= 4) handleReorder(p.id, 24); })}
+                    >
+                      <RefreshCw size={14} /> Reabastecer críticos (+24u)
+                    </button>
+                  </div>
+
+                  {/* Barra de búsqueda y categorías */}
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <div style={{ position: "relative", flex: 1 }}>
+                      <Search size={16} color="#7a6e64" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
+                      <input
+                        type="text"
+                        placeholder="Buscar producto por nombre..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{ width: "100%", padding: "9px 12px 9px 36px", borderRadius: 100, border: "1px solid var(--border-ui)", background: "white", fontSize: 13 }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="category-pills-row">
+                    {categories.map((cat) => (
+                      <button
+                        key={cat}
+                        className={`category-pill ${selectedCategory === cat ? "active" : ""}`}
+                        onClick={() => setSelectedCategory(cat)}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+                    {filteredInventory.map((item) => {
+                      const isLow = item.stock <= 4;
+                      return (
+                        <div key={item.id} style={{ background: "white", borderRadius: 16, padding: 14, border: isLow ? "2px solid #ef4444" : "1px solid var(--border-ui)", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 10 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <span style={{ fontSize: 26 }}>{item.emoji}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</div>
+                              <div style={{ fontSize: 12, color: "#7a6e64" }}>Venta: {formatCLP(item.price)} · Costo: {formatCLP(item.cost)}</div>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: 12, fontWeight: 800, padding: "4px 10px", borderRadius: 100, background: isLow ? "#fee2e2" : "#eaf8ee", color: isLow ? "#b91c1c" : "#15803d" }}>
+                              {item.stock} disponibles
+                            </span>
+                            <button style={{ background: "var(--paper)", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }} onClick={() => handleReorder(item.id, 12)}>
+                              +12 al proveedor
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* VISTA 4: CONSEJOS DE PRECIOS */}
+              {screen === "advisory" && (
+                <div style={{ flex: 1, padding: 24, overflowY: "auto", display: "flex", flexDirection: "column", gap: 18 }}>
+                  <div>
+                    <h2 style={{ fontFamily: "Archivo Black", fontSize: 20 }}>Consejos de Precios y Margen de Alma</h2>
+                    <p style={{ fontSize: 13, color: "#7a6e64" }}>Recomendaciones calculadas según facturas mayoristas recibidas y rotación del negocio.</p>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+                    {priceRecommendations.map((rec) => (
+                      <div key={rec.id} style={{ background: "white", borderRadius: 18, padding: 18, border: "1px solid var(--border-ui)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                        <div>
+                          <span style={{ fontSize: 11, fontWeight: 800, padding: "4px 8px", borderRadius: 6, background: rec.type === "subir" ? "#fef3c7" : "#f3e8ff", color: rec.type === "subir" ? "#b45309" : "#7c3aed", display: "inline-block", marginBottom: 8 }}>
+                            {rec.badge}
+                          </span>
+                          <h3 style={{ fontSize: 15, fontWeight: 800, color: "#141210" }}>{rec.name}</h3>
+                          <p style={{ fontSize: 12.5, color: "#6a6058", margin: "8px 0 14px", lineHeight: 1.4 }}>{rec.reason}</p>
+                        </div>
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "12px 0", background: "var(--paper)", padding: "10px 12px", borderRadius: 12 }}>
+                            <div>
+                              <div style={{ fontSize: 10, color: "#8a8078", fontWeight: 700 }}>ACTUAL</div>
+                              <div style={{ fontSize: 14, fontWeight: 700, textDecoration: "line-through", color: "#8a8078" }}>{formatCLP(rec.currentPrice)}</div>
+                            </div>
+                            <span style={{ fontWeight: 800, color: "#141210" }}>➔</span>
+                            <div>
+                              <div style={{ fontSize: 10, color: "#15803d", fontWeight: 700 }}>SUGERIDO</div>
+                              <div style={{ fontSize: 16, fontWeight: 800, color: "#15803d" }}>{formatCLP(rec.suggestedPrice)}</div>
+                            </div>
+                          </div>
+                          <button
+                            style={{ width: "100%", background: "var(--ink)", color: "white", border: "none", borderRadius: 10, padding: 10, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}
+                            onClick={() => handlePriceAdjust(rec.id, rec.suggestedPrice, rec.reason)}
+                          >
+                            Aplicar {formatCLP(rec.suggestedPrice)} ({rec.extraProfit})
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* VISTA 5: RESUMEN Y MÉTRICAS */}
+              {screen === "summary" && (
+                <div style={{ flex: 1, padding: 24, overflowY: "auto", display: "flex", flexDirection: "column", gap: 18 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <h2 style={{ fontFamily: "Archivo Black", fontSize: 20 }}>Métricas del Negocio</h2>
+                      <p style={{ fontSize: 13, color: "#7a6e64" }}>Comparativa en vivo frente al registro semanal histórico.</p>
+                    </div>
+                    <button
+                      style={{ background: "#ff2440", color: "white", border: "none", borderRadius: 10, padding: "10px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
+                      onClick={() => setShowCloseDayModal(true)}
+                    >
+                      <Award size={16} /> Cerrar Turno y Ver Balance
+                    </button>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+                    <div className="kpi-box">
+                      <div className="kpi-label">Ventas Hoy</div>
+                      <div className="kpi-val">{formatCLP(totalHoy)}</div>
+                      <div className="kpi-sub up">
+                        <TrendingUp size={13} /> En {orderCount} boletas
+                      </div>
+                    </div>
+                    <div className="kpi-box">
+                      <div className="kpi-label">Ganancia Neta Est.</div>
+                      <div className="kpi-val" style={{ color: "#15803d" }}>{formatCLP(gananciaLimpiaHoy)}</div>
+                      <div className="kpi-sub up">{margenPorcentaje.toFixed(1)}% margen real</div>
+                    </div>
+                    <div className="kpi-box">
+                      <div className="kpi-label">Ticket Promedio</div>
+                      <div className="kpi-val">{formatCLP(ticketPromedio)}</div>
+                      <div className="kpi-sub neutral">Por compra</div>
+                    </div>
+                    <div className="kpi-box">
+                      <div className="kpi-label">Semana Pasada Total</div>
+                      <div className="kpi-val">{formatCLP(LAST_WEEK_SAME_DAY_TOTAL)}</div>
+                      <div className="kpi-sub neutral">{LAST_WEEK_SAME_DAY_ORDERS} compras acumuladas</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 18 }}>
+                    <div className="widget-card">
+                      <h3>Boletas Recientes Emitidas</h3>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 250, overflowY: "auto" }}>
+                        {salesLog.length === 0 ? (
+                          <div style={{ padding: 20, textAlign: "center", color: "#a89e94", fontSize: 13 }}>No hay ventas registradas aún en este turno.</div>
+                        ) : (
+                          salesLog.map((s) => (
+                            <div key={s.id} style={{ background: "var(--cream)", borderRadius: 12, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: 13 }}>{s.items.map((i) => `${i.qty}x ${i.name}`).join(", ")}</div>
+                                <div style={{ fontSize: 11, color: "#7a6e64" }}>
+                                  {s.time.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })} · {s.paymentMethod || "Efectivo"}
+                                </div>
+                              </div>
+                              <span style={{ fontWeight: 800, fontSize: 15 }}>{formatCLP(s.total)}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="widget-card">
+                      <h3>Consejo Financiero del Día</h3>
+                      <p style={{ fontSize: 13, color: "#544b43", lineHeight: 1.5 }}>
+                        ✅ <strong>Regla del sobre:</strong> De los {formatCLP(totalHoy)} recaudados hoy, guarda al menos {formatCLP(totalHoy * 0.35)} para el pago de distribuidores.<br /><br />
+                        💡 <strong>Rotación:</strong> El pan representó el 42% del flujo de vecinos hoy. No dejes que la vitrina quede vacía después de las 18:30 hrs.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* VISTA 6: CHAT CON ALMA */}
+              {screen === "chat" && (
+                <div style={{ flex: 1, display: "grid", gridTemplateColumns: "330px 1fr", minHeight: 0 }}>
+                  <div style={{ background: "white", borderRight: "1px solid var(--border-ui)", padding: 22, display: "flex", flexDirection: "column", alignItems: "center", overflowY: "auto" }}>
+                    <AlmaFace size={150} isListening={isListening} isThinking={isThinking} />
+                    <h3 style={{ fontFamily: "Archivo Black", fontSize: 18, marginTop: 10 }}>Alma</h3>
+                    <p style={{ fontSize: 12, color: "#7a6e64", marginBottom: 16 }}>Compañera de Mostrador</p>
+
+                    <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#8a8078", textAlign: "left", marginBottom: 4 }}>
+                        PREGUNTAS COMUNES
+                      </div>
+                      {SUGGESTED_QUESTIONS.map((q) => (
+                        <button
+                          key={q}
+                          style={{ background: "var(--cream)", border: "1px solid var(--border-ui)", borderRadius: 10, padding: "8px 10px", textAlign: "left", fontSize: 11.5, fontWeight: 600, cursor: "pointer", color: "#141210" }}
+                          onClick={() => handleUserSubmit(q)}
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", background: "var(--cream)", minHeight: 0 }}>
+                    <div style={{ flex: 1, overflowY: "auto", padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+                      {messages.map((m) => (
+                        <div
+                          key={m.id}
+                          style={{
+                            maxWidth: "75%",
+                            padding: "12px 16px",
+                            borderRadius: 18,
+                            fontSize: 13.5,
+                            lineHeight: 1.45,
+                            fontWeight: 500,
+                            alignSelf: m.role === "alma" ? "flex-start" : "flex-end",
+                            background: m.role === "alma" ? "white" : "var(--ink)",
+                            color: m.role === "alma" ? "var(--ink)" : "white",
+                            borderBottomLeftRadius: m.role === "alma" ? 4 : 18,
+                            borderBottomRightRadius: m.role === "user" ? 4 : 18,
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+                          }}
+                        >
+                          {m.text}
+                        </div>
+                      ))}
+                      {isThinking && (
+                        <div style={{ alignSelf: "flex-start", background: "white", padding: "10px 14px", borderRadius: 16, fontSize: 13, color: "#8a8078" }}>
+                          Alma está consultando los números del almacén...
+                        </div>
+                      )}
+                      <div ref={messagesEndRef} />
+                    </div>
+
+                    <div style={{ background: "white", borderTop: "1px solid var(--border-ui)", padding: "12px 18px", display: "flex", gap: 10, alignItems: "center" }}>
+                      <button
+                        style={{ width: 42, height: 42, borderRadius: "50%", border: "none", background: isListening ? "#ff2440" : "var(--paper)", color: isListening ? "white" : "#141210", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        onClick={toggleListen}
+                      >
+                        <Mic size={20} />
+                      </button>
+                      <input
+                        ref={inputRef}
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleUserSubmit(inputText)}
+                        placeholder="Pregúntale a Alma sobre tus ventas, precios, fiados o stock..."
+                        style={{ flex: 1, border: "none", background: "var(--paper)", padding: "12px 18px", borderRadius: 100, fontSize: 13.5, color: "var(--ink)" }}
+                      />
+                      <button
+                        style={{ width: 42, height: 42, borderRadius: "50%", border: "none", background: "#141210", color: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        onClick={() => handleUserSubmit(inputText)}
+                      >
+                        <Send size={18} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* MODAL / FLUJO: CERRAR EL DÍA */}
+              {showCloseDayModal && (
+                <div className="modal-overlay">
+                  <div className="modal-closing-box">
+                    <div className="modal-header">
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <Award size={24} color="#ff4772" />
+                        <div>
+                          <h3 style={{ fontFamily: "Archivo Black", fontSize: 18 }}>Arqueo y Cierre del Día</h3>
+                          <div style={{ fontSize: 12, color: "#d2c4b8" }}>Resumen final de caja antes de reiniciar para mañana</div>
+                        </div>
+                      </div>
+                      <button style={{ background: "transparent", border: "none", color: "white", cursor: "pointer" }} onClick={() => setShowCloseDayModal(false)}>
+                        <X size={22} />
+                      </button>
+                    </div>
+
+                    <div className="modal-body">
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                        <div style={{ background: "var(--cream)", padding: 14, borderRadius: 14, border: "1px solid var(--border-ui)" }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#7a6e64" }}>VENTA TOTAL COBRADA</div>
+                          <div style={{ fontFamily: "Archivo Black", fontSize: 22, color: "var(--ink)", marginTop: 4 }}>{formatCLP(totalHoy)}</div>
+                          <div style={{ fontSize: 11, color: "#15803d", fontWeight: 700, marginTop: 2 }}>{orderCount} boletas en caja</div>
+                        </div>
+
+                        <div style={{ background: "#eaf8ee", padding: 14, borderRadius: 14, border: "1px solid #bbf7d0" }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#15803d" }}>GANANCIA LIMPIA REAL</div>
+                          <div style={{ fontFamily: "Archivo Black", fontSize: 22, color: "#15803d", marginTop: 4 }}>{formatCLP(gananciaLimpiaHoy)}</div>
+                          <div style={{ fontSize: 11, color: "#15803d", fontWeight: 700, marginTop: 2 }}>{margenPorcentaje.toFixed(1)}% margen neto</div>
+                        </div>
+
+                        <div style={{ background: "var(--cream)", padding: 14, borderRadius: 14, border: "1px solid var(--border-ui)" }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#7a6e64" }}>SEMANA PASADA (TOTAL)</div>
+                          <div style={{ fontFamily: "Archivo Black", fontSize: 22, color: "#7c3aed", marginTop: 4 }}>{formatCLP(LAST_WEEK_SAME_DAY_TOTAL)}</div>
+                          <div style={{ fontSize: 11, color: "#7c3aed", fontWeight: 700, marginTop: 2 }}>Meta semanal en camino</div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: "var(--ink)", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+                          <span>Movimiento de Ventas por Tramo Horario</span>
+                          <span style={{ color: "#ff2440", fontWeight: 700 }}>Horario Peak: Tarde / Once</span>
+                        </div>
+                        <div className="chart-bar-container">
+                          <div className="chart-col">
+                            <div className="col-fill" style={{ height: "35%" }} />
+                            <span style={{ fontSize: 10.5, fontWeight: 700 }}>09:00 - 12:00</span>
+                          </div>
+                          <div className="chart-col">
+                            <div className="col-fill" style={{ height: "65%" }} />
+                            <span style={{ fontSize: 10.5, fontWeight: 700 }}>12:00 - 15:00</span>
+                          </div>
+                          <div className="chart-col">
+                            <div className="col-fill" style={{ height: "45%" }} />
+                            <span style={{ fontSize: 10.5, fontWeight: 700 }}>15:00 - 18:00</span>
+                          </div>
+                          <div className="chart-col">
+                            <div className="col-fill peak" style={{ height: "92%" }} />
+                            <span style={{ fontSize: 10.5, fontWeight: 800, color: "#ff2440" }}>18:00 - 21:30 (Peak)</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ background: "#fff9f0", border: "1px solid #fed7aa", borderRadius: 16, padding: 14 }}>
+                        <h4 style={{ fontSize: 13, fontWeight: 800, color: "#9a4c06", marginBottom: 4 }}>
+                          💡 Consejo de Alma para abrir mañana
+                        </h4>
+                        <p style={{ fontSize: 12.5, color: "#7c3803", lineHeight: 1.45 }}>
+                          Hoy la hallulla se agotó antes de las 19:30. Para mañana pide <strong>10 kg extra de pan</strong> y separa <strong>{formatCLP(totalHoy * 0.35)}</strong> para cubrir las facturas de proveedores.
+                        </p>
+                      </div>
+
+                      <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                        <button
+                          style={{ flex: 1, background: "#141210", color: "white", border: "none", borderRadius: 12, padding: 14, fontWeight: 800, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                          onClick={executeCloseDay}
+                        >
+                          <CheckCircle2 size={18} color="#22c55e" /> Confirmar Cierre y Reiniciar Caja Diaria
+                        </button>
+                        <button
+                          style={{ background: "var(--paper)", border: "none", borderRadius: 12, padding: "14px 20px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                          onClick={() => setShowCloseDayModal(false)}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {toast && (
+                <div className="toast-landscape">
+                  <Check size={16} color="#22c55e" />
+                  <span>{toast}</span>
+                </div>
+              )}
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    const root = createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
