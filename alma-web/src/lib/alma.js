@@ -40,22 +40,38 @@ function parseQty(words) {
 export function parseOrder(text, products) {
   const index = aliasIndex(products);
   const clean = normalize(text)
-    .replace(/\by (medio|media)\b/g, " ymedio")
+    .replace(/\b(kilos?|kg|\d+|un|uno|una|dos|tres|cuatro|cinco) y (medio|media)\b/g, "$1 ymedio")
     .replace(/\b(anota|anotame|agrega|agregame|vende|vendi|cobra|cobrame|dame|quiero|me llevo|ponme|pasame|por favor|porfa)\b/g, " ");
   const segments = clean.split(/,|\by\b|\bmas\b|\+|\bcon\b/).map((s) => s.trim()).filter(Boolean);
 
   const found = new Map();
   const unknown = [];
   for (const seg of segments) {
-    const hit = index.find(({ alias }) => new RegExp(`(^|\\s)${escapeRe(alias)}(\\s|$)`).test(seg));
-    if (!hit) {
+    // Todos los productos nombrados en el tramo ("dos cocas tres super 8"), del alias más largo al más corto.
+    let rest = ` ${seg} `;
+    const hits = [];
+    for (const { alias, product } of index) {
+      const re = new RegExp(`\\s${escapeRe(alias)}(?=\\s)`, "g");
+      let m;
+      while ((m = re.exec(rest))) {
+        hits.push({ product, start: m.index, end: m.index + m[0].length });
+        rest = rest.slice(0, m.index) + " " + "\u0000".repeat(m[0].length - 1) + rest.slice(m.index + m[0].length);
+        re.lastIndex = m.index + m[0].length;
+      }
+    }
+    if (!hits.length) {
       if (seg.replace(/\b(de|del|la|el|los|las|kilo|kilos|kg|unidad|unidades)\b/g, "").trim().length > 2) unknown.push(seg);
       continue;
     }
-    const rest = seg.replace(new RegExp(`(^|\\s)${escapeRe(hit.alias)}(\\s|$)`), " ").trim();
-    const qty = parseQty(rest.split(" ").filter(Boolean));
-    const prev = found.get(hit.product.id);
-    found.set(hit.product.id, { product: hit.product, qty: (prev?.qty || 0) + qty });
+    hits.sort((a, b) => a.start - b.start);
+    hits.forEach((h, i) => {
+      // La cantidad son las palabras entre el producto anterior y este ("medio kilo de" hallulla).
+      const from = i === 0 ? 0 : hits[i - 1].end;
+      const words = rest.slice(from, h.start).replace(/\u0000/g, " ").split(" ").filter(Boolean);
+      const qty = parseQty(words);
+      const prev = found.get(h.product.id);
+      found.set(h.product.id, { product: h.product, qty: (prev?.qty || 0) + qty });
+    });
   }
   return { items: [...found.values()], unknown };
 }

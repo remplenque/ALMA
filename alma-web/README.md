@@ -15,6 +15,12 @@ Para probar desde el iPad en la misma red wifi (la cámara y el micrófono exige
 npm run dev:ipad     # abre https://<ip-del-computador>:5173 en Safari y acepta el certificado
 ```
 
+Para validar el prototipo contra los requisitos del cliente (con la app corriendo en otra terminal):
+
+```bash
+npm run validar      # necesita un Chromium de Playwright: npx playwright install chromium
+```
+
 Para publicarlo: `npm run build` genera `dist/`. En Vercel basta con importar la carpeta; `vercel.json` y `api/tts.js` ya están listos.
 
 ## Qué incluye

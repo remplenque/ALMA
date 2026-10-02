@@ -1051,7 +1051,7 @@
   border-bottom: 2px solid var(--ink);
 }
 .inv-row.is-low {
-  background: linear-gradient(90deg, var(--pink-wash), transparent 70%);
+  background: var(--pink-wash);
   border-radius: 14px;
 }
 .inv-product {

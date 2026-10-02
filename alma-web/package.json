@@ -7,7 +7,8 @@
     "dev": "vite",
     "dev:ipad": "HTTPS=1 vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "validar": "node scripts/validar.cjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "playwright-core": "^1.63.0",
     "vite": "^8.3.2"
   }
 }

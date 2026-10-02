@@ -154,15 +154,16 @@ function speakWithSynth(text, id) {
     u.onboundary = () => {
       synthPulse = 1;
     };
-    const done = () => {
+    const done = (failed = false) => {
       stopLoop();
-      resolve();
+      resolve(failed);
     };
-    u.onend = done;
-    u.onerror = done;
+    u.onend = () => done(false);
+    // Sin voces instaladas el navegador falla al tiro: avisamos para animar igual.
+    u.onerror = (e) => done(e.error !== "interrupted" && e.error !== "canceled");
     window.speechSynthesis.speak(u);
     // Respaldo: algunos navegadores no avisan el final.
-    setTimeout(() => snapshot.id === id && done(), Math.max(4000, text.length * 95));
+    setTimeout(() => snapshot.id === id && done(false), Math.max(4000, text.length * 95));
   });
 }
 
@@ -210,16 +211,21 @@ export async function say(text, { mood = "smile", silent = false, source = "any"
   stop();
   const id = snapshot.id + 1;
   setSnapshot({ speaking: true, text, mood, id, source });
-  if (!voiceOn || silent) {
-    // Sin voz: la boca se mueve un momento para que se entienda que es ella quien habla.
+  // Sin voz (o si el dispositivo no puede hablar): la boca se mueve un momento
+  // para que se entienda que es ella quien habla.
+  const mime = async () => {
     syntheticLoop();
     await new Promise((r) => setTimeout(r, Math.min(2600, 900 + text.length * 22)));
+  };
+  if (!voiceOn || silent) {
+    await mime();
   } else {
     try {
       if (!cloudAvailable) throw new Error("sin voz en la nube");
       await speakWithCloud(text, id);
     } catch {
-      if (snapshot.id === id) await speakWithSynth(text, id);
+      if (snapshot.id === id && !canSynth) await mime();
+      else if (snapshot.id === id && (await speakWithSynth(text, id)) && snapshot.id === id) await mime();
     }
   }
   if (snapshot.id === id) {
