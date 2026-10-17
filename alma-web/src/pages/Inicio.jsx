@@ -5,6 +5,7 @@ import AlmaLive from "../components/AlmaLive.jsx";
 import { BrandIcon } from "../components/Brand.jsx";
 import { useStore } from "../lib/store.jsx";
 import { SUGGESTED_QUESTIONS, answer, buildContext, welcome } from "../lib/alma.js";
+import { askAlma } from "../lib/agent.js";
 import { say, stop, unlockAudio, useListener, useSpeech } from "../lib/voice.js";
 import { STORE } from "../data/seed.js";
 
@@ -59,7 +60,7 @@ export function FunctionsSheet({ open, onClose }) {
 }
 
 export default function Inicio() {
-  const { state, actions, lastWeek } = useStore();
+  const { state, actions, lastWeek, avgDay } = useStore();
   const navigate = useNavigate();
   const ctx = useMemo(() => buildContext({ state, lastWeek }), [state, lastWeek]);
   const ctxRef = useRef(ctx);
@@ -75,19 +76,35 @@ export default function Inicio() {
 
   useEffect(() => stop, []);
 
-  function reply(raw) {
+  // Conversación con el agente (Haiku 5.5 vía OpenRouter). Si no responde, usa el cerebro local.
+  const history = useRef([]);
+  const busy = useRef(false);
+
+  async function reply(raw) {
     const q = raw.trim();
-    if (!q) return;
+    if (!q || busy.current) return;
+    busy.current = true;
     setHeard(q);
     setText("");
     setThinking(true);
-    setTimeout(() => {
-      const res = answer(q, ctxRef.current);
+
+    let res = null;
+    try {
+      res = await askAlma(q, history.current, { getState: actions.getState, actions, lastWeek, avgDay });
+    } catch (e) {
+      console.warn("Alma: chat no disponible, uso el cerebro local.", e.message);
+    }
+    if (!res) {
+      await new Promise((r) => setTimeout(r, 450));
+      res = answer(q, ctxRef.current);
       if (res.order) res.order.forEach(({ product, qty }) => actions.addToCart(product.id, qty));
-      setBubble({ text: res.text, mood: res.mood, link: res.link || null });
-      setThinking(false);
-      say(res.text, { mood: res.mood, source: "home" });
-    }, 450);
+    }
+    history.current = [...history.current, res.turn || [{ role: "user", content: q }, { role: "assistant", content: res.text }]].slice(-4);
+
+    setBubble({ text: res.text, mood: res.mood, link: res.link || null });
+    setThinking(false);
+    busy.current = false;
+    say(res.text, { mood: res.mood, source: "home" });
   }
 
   const mic = useListener(reply);

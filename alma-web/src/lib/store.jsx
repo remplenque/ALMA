@@ -157,9 +157,15 @@ const StoreContext = createContext(null);
 const ToastContext = createContext(null);
 
 export function StoreProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, undefined, loadState);
+  const [state, rawDispatch] = useReducer(reducer, undefined, loadState);
   const stateRef = useRef(state);
   stateRef.current = state;
+  // El reducer es puro: aplicarlo también sobre la referencia deja el cambio visible al instante
+  // (el agente encadena escrituras y lecturas antes de que React vuelva a renderizar).
+  const dispatch = useCallback((action) => {
+    stateRef.current = reducer(stateRef.current, action);
+    rawDispatch(action);
+  }, []);
 
   useEffect(() => {
     try {
@@ -182,6 +188,7 @@ export function StoreProvider({ children }) {
       return p ? p.stock - inCart : 0;
     };
     return {
+      getState: () => stateRef.current,
       product,
       available,
       // Devuelve la cantidad realmente agregada (limitada por stock).

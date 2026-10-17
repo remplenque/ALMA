@@ -39,6 +39,21 @@ Para publicarlo: `npm run build` genera `dist/`. En Vercel basta con importar la
 
 Los datos son de ejemplo y se guardan en el navegador. "Ver funciones → Reiniciar datos" vuelve a empezar, y "Simular notificaciones" repite los avisos para una presentación.
 
+## Cerebro de Alma (chat con IA)
+
+La conversación de la pantalla de inicio la lleva **Claude Haiku 5.5 a través de OpenRouter**. El agente está conectado a toda la base de datos del almacén (inventario, ventas del día, fiados, caja, cierres y consejos de precios) y puede actuar: anotar productos en la boleta, reponer stock, cambiar precios y registrar fiados o abonos. Cobrar y cerrar la caja los sigue haciendo el almacenero en pantalla.
+
+1. Crea una clave en https://openrouter.ai/keys.
+2. Ponla en `.env.local` (o en las variables de Vercel): `OPENROUTER_API_KEY=...`. El modelo es `anthropic/claude-haiku-5.5` y se cambia con `OPENROUTER_MODEL`.
+3. Reinicia `npm run dev`.
+
+Sin clave, o si OpenRouter falla, Alma responde con su cerebro local (`src/lib/alma.js`), así que la demo nunca queda muda.
+
+| Pieza | Dónde |
+| --- | --- |
+| Endpoint que habla con OpenRouter (la clave y la personalidad de Alma viven solo en el servidor) | `api/_chat.js`, `api/chat.js` |
+| Herramientas de lectura y escritura sobre la base de datos, y bucle del agente | `src/lib/agent.js` |
+
 ## Voz natural de Alma
 
 Sin configuración, Alma usa la mejor voz femenina en español que tenga el dispositivo (en Edge aparece una voz chilena natural; en iPad suele ser "Paulina" o "Mónica"). Para una voz cálida y real en todos los equipos, crea `.env.local` (o variables de entorno en Vercel) con **una** de estas opciones:

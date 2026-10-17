@@ -2,6 +2,7 @@
 // configurado, con la mejor voz femenina en español del dispositivo.
 // Expone el nivel de la voz cuadro a cuadro para mover la boca del isotipo.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { normalize } from "./format.js";
 
 const Recognition = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
 export const canListen = Boolean(Recognition);
@@ -190,6 +191,30 @@ async function speakWithCloud(text, id) {
   stopLoop();
 }
 
+/* ---------- anti-eco: que Alma no se escuche a sí misma ---------- */
+
+const ECHO_TAIL_MS = 1500; // el parlante sigue sonando un instante después de terminar
+const ECHO_WINDOW_MS = 10000;
+let activeRec = null; // reconocimiento en curso (para cortarlo cuando Alma habla)
+let lastSpoken = { text: "", at: 0, tail: false };
+
+// tail=false: el audio se cortó a propósito (el dueño la interrumpió), no queda eco que esperar.
+function noteSpoken(text, tail = true) {
+  lastSpoken = { text, at: Date.now(), tail };
+}
+
+// ¿Lo que "escuchó" el micrófono es la propia voz de Alma?
+function isEcho(transcript) {
+  if (snapshot.speaking) return true;
+  const since = Date.now() - lastSpoken.at;
+  if (lastSpoken.tail && since < ECHO_TAIL_MS) return true;
+  if (since > ECHO_WINDOW_MS || !lastSpoken.text) return false;
+  const heard = normalize(transcript).split(" ").filter(Boolean);
+  if (heard.length < 3) return false;
+  const said = new Set(normalize(lastSpoken.text).split(" "));
+  return heard.filter((w) => said.has(w)).length / heard.length >= 0.7;
+}
+
 /* ---------- API pública ---------- */
 
 let voiceOn = true;
@@ -199,6 +224,7 @@ export function setVoiceEnabled(on) {
 }
 
 export function stop() {
+  if (snapshot.speaking) noteSpoken(snapshot.text, false);
   stopLoop();
   if (canSynth) window.speechSynthesis.cancel();
   if (audioEl) audioEl.pause();
@@ -209,6 +235,8 @@ export function stop() {
 // source indica qué cara de Alma habla (inicio, notificación, caja…) para que solo esa mueva la boca.
 export async function say(text, { mood = "smile", silent = false, source = "any" } = {}) {
   stop();
+  // Mientras Alma habla el micrófono no escucha: si no, tomaría su voz como si fuera del dueño.
+  activeRec?.abort();
   const id = snapshot.id + 1;
   setSnapshot({ speaking: true, text, mood, id, source });
   // Sin voz (o si el dispositivo no puede hablar): la boca se mueve un momento
@@ -230,6 +258,8 @@ export async function say(text, { mood = "smile", silent = false, source = "any"
   }
   if (snapshot.id === id) {
     stopLoop();
+    // Si ya la cortaron a propósito, stop() dejó anotado que no hay eco que esperar.
+    if (snapshot.speaking) noteSpoken(text);
     setSnapshot({ speaking: false });
   }
 }
@@ -269,6 +299,8 @@ export function useListener(onResult) {
     rec.onresult = (e) => {
       const transcript = e.results[0][0].transcript;
       setListening(false);
+      rec.abort(); // soltar el micrófono al tiro: no seguir escuchando mientras ella responde
+      if (isEcho(transcript)) return;
       cbRef.current?.(transcript);
     };
     rec.onerror = (e) => {
@@ -276,8 +308,12 @@ export function useListener(onResult) {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") setError("Necesito permiso para usar el micrófono.");
       else if (e.error !== "aborted" && e.error !== "no-speech") setError("No te escuché bien. ¿Me lo repites?");
     };
-    rec.onend = () => setListening(false);
+    rec.onend = () => {
+      setListening(false);
+      if (activeRec === rec) activeRec = null;
+    };
     recRef.current = rec;
+    activeRec = rec;
     try {
       rec.start();
       return true;
