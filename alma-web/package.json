@@ -8,7 +8,8 @@
     "dev:ipad": "HTTPS=1 vite",
     "build": "vite build",
     "preview": "vite preview",
-    "validar": "node scripts/validar.cjs"
+    "validar": "node scripts/validar.cjs",
+    "probar-voz": "node scripts/probar-voz.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",

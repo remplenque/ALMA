@@ -63,11 +63,18 @@ Sin configuración, Alma usa la mejor voz femenina en español que tenga el disp
 AZURE_SPEECH_KEY=...
 AZURE_SPEECH_REGION=eastus
 
-# Alternativa
+# Alternativa: ElevenLabs (basta la clave; la voz es opcional)
 ELEVENLABS_API_KEY=...
-ELEVENLABS_VOICE_ID=...
+ELEVENLABS_VOICE_ID=...      # id de una voz en español de tu "My Voices"
+# ELEVENLABS_MODEL=eleven_flash_v2_5   # más rápida y barata; por defecto eleven_multilingual_v2
+
 # OPENAI_API_KEY=...
+
+# Si hay claves de varios proveedores, elige cuál usar (por defecto: Azure, ElevenLabs, OpenAI)
+# TTS_PROVIDER=elevenlabs
 ```
+
+**ElevenLabs paso a paso:** crea la clave en elevenlabs.io → Settings → API Keys (permiso "Text to Speech"). En Voice Library filtra por idioma Español (acento chileno o latino neutro), agrega la voz que te guste a "My Voices" y copia su id (Voice ID). Sin `ELEVENLABS_VOICE_ID` usa "Rachel", que habla español con acento extranjero. En Vercel hay que poner las mismas variables en Settings → Environment Variables. Para oír la voz sin abrir la app: `npm run probar-voz` (o `npm run probar-voz -- "tu frase"`).
 
 Reinicia `npm run dev` después de crear el archivo. Si la voz en la nube falla, Alma vuelve sola a la voz del dispositivo.
 
