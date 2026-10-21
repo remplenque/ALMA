@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router";
-import { ArrowRight, MagnifyingGlass, Minus, PencilSimple, Plus, X } from "@phosphor-icons/react";
+import { ArrowRight, Barcode, MagnifyingGlass, Minus, PencilSimple, Plus, X } from "@phosphor-icons/react";
 import { AlmaFace, BrandIcon, SectionTitle, productIcon } from "../components/Brand.jsx";
 import Modal from "../components/Modal.jsx";
+import BarcodeField from "../components/BarcodeField.jsx";
 import { useStore, useToast } from "../lib/store.jsx";
+import { canonical } from "../lib/barcode.js";
 import { lowStock, margin, priceSuggestions, suggestedOrder } from "../lib/metrics.js";
 import { clp, normalize, pct, qtyLabel } from "../lib/format.js";
 import { CATEGORIES } from "../data/seed.js";
@@ -89,13 +91,13 @@ function PriceCell({ p }) {
   );
 }
 
-const EMPTY_FORM = { name: "", category: "Abarrotes", price: "", cost: "", stock: "", unit: "u" };
+const EMPTY_FORM = { name: "", category: "Abarrotes", price: "", cost: "", stock: "", unit: "u", barcode: "" };
 
 function AddProduct({ open, onClose }) {
   const { actions } = useStore();
   const toast = useToast();
   const [f, setF] = useState(EMPTY_FORM);
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const set = (k) => (e) => setF((cur) => ({ ...cur, [k]: e.target.value }));
   const num = (v) => Number(String(v).replace(/[^\d.,]/g, "").replace(",", ".")) || 0;
   const valid = f.name.trim() && num(f.price) > 0;
 
@@ -117,15 +119,23 @@ function AddProduct({ open, onClose }) {
             unit: f.unit,
             speed: "media",
             aliases: [normalize(name).split(" ")[0]],
+            barcode: canonical(f.barcode) || null,
           });
           toast(`${name} agregado a la vitrina.`, "happy");
           setF(EMPTY_FORM);
           onClose();
         }}
       >
+        <BarcodeField
+          label="Escanea el código y Alma llena el resto"
+          value={f.barcode}
+          onChange={(barcode) => setF((cur) => ({ ...cur, barcode }))}
+          lookup
+          onFound={(info) => setF((cur) => ({ ...cur, name: cur.name.trim() && !cur.auto ? cur.name : info.name, category: info.category, auto: true }))}
+        />
         <label className="field">
           <span className="field-label">Nombre</span>
-          <input className="input" value={f.name} onChange={set("name")} placeholder="Ej: Mermelada de durazno 250 g" required />
+          <input className="input" value={f.name} onChange={(e) => setF((cur) => ({ ...cur, name: e.target.value, auto: false }))} placeholder="Ej: Mermelada de durazno 250 g" required />
         </label>
         <div className="form-row">
           <label className="field">
@@ -171,6 +181,39 @@ function AddProduct({ open, onClose }) {
   );
 }
 
+function EditBarcode({ product, onClose }) {
+  const { actions } = useStore();
+  const toast = useToast();
+  const [code, setCode] = useState("");
+  useEffect(() => {
+    if (product) setCode(product.barcode || "");
+  }, [product]);
+
+  return (
+    <Modal open={Boolean(product)} onClose={onClose} title="Código de barras" kicker={product?.name}>
+      <form
+        className="form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          actions.setBarcode(product.id, code);
+          toast(canonical(code) ? `Código guardado para ${product.name}.` : `Le saqué el código a ${product.name}.`, "happy");
+          onClose();
+        }}
+      >
+        <BarcodeField value={code} onChange={setCode} ownId={product?.id} />
+        <div className="modal-actions">
+          <button type="button" className="btn btn-paper" onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className="btn btn-pink">
+            Guardar
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export default function Inventario() {
   const { state, actions } = useStore();
   const toast = useToast();
@@ -178,6 +221,7 @@ export default function Inventario() {
   const [cat, setCat] = useState("Todos");
   const [onlyLow, setOnlyLow] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [codeFor, setCodeFor] = useState(null);
 
   const { hash } = useLocation();
   useEffect(() => {
@@ -280,6 +324,10 @@ export default function Inventario() {
                     <small>
                       {p.category} · se vende {p.speed}
                     </small>
+                    <button className="inv-code-btn" onClick={() => setCodeFor(p)} aria-label={`Código de barras de ${p.name}`}>
+                      <Barcode size={14} weight="bold" />
+                      <span className="inv-code">{p.barcode || "Sin código"}</span>
+                    </button>
                   </span>
                 </span>
                 <span role="cell" data-label="Precio">
@@ -324,6 +372,7 @@ export default function Inventario() {
       </section>
 
       <AddProduct open={adding} onClose={() => setAdding(false)} />
+      <EditBarcode product={codeFor} onClose={() => setCodeFor(null)} />
     </div>
   );
 }
