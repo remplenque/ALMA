@@ -3,6 +3,7 @@ import { PRODUCTS, dateKeyOf, generateDaySales, hourNow, lastWeekSales, pastDays
 import { averageDay, dayStats, vecinoBalance } from "./metrics.js";
 import { setVoiceEnabled } from "./voice.js";
 import { round3, uid } from "./format.js";
+import { canonical, findByBarcode } from "./barcode.js";
 
 const STORAGE_KEY = "alma:v1";
 const VERSION = 1;
@@ -25,11 +26,18 @@ function freshState() {
   };
 }
 
+// Estados guardados antes de existir los códigos de barras: se les agrega el de los productos de la demo.
+const SEED_BARCODES = Object.fromEntries(PRODUCTS.filter((p) => p.barcode).map((p) => [p.id, p.barcode]));
+function withBarcodes(state) {
+  if (state.products.every((p) => p.barcode !== undefined || !SEED_BARCODES[p.id])) return state;
+  return { ...state, products: state.products.map((p) => (p.barcode === undefined && SEED_BARCODES[p.id] ? { ...p, barcode: SEED_BARCODES[p.id] } : p)) };
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return freshState();
-    const saved = JSON.parse(raw);
+    const saved = withBarcodes(JSON.parse(raw));
     if (saved.version !== VERSION) return freshState();
     const today = dateKeyOf();
     if (saved.dateKey !== today) {
@@ -108,8 +116,19 @@ function reducer(state, action) {
       };
     case "product/update":
       return { ...state, products: state.products.map((p) => (p.id === action.id ? { ...p, ...action.patch } : p)) };
-    case "product/add":
-      return { ...state, products: [...state.products, action.product] };
+    case "product/barcode": {
+      // Un código identifica a un solo producto: si ya estaba en otro, se le quita.
+      const code = canonical(action.code);
+      return {
+        ...state,
+        products: state.products.map((p) => (p.id === action.id ? { ...p, barcode: code || null } : code && canonical(p.barcode) === code ? { ...p, barcode: null } : p)),
+      };
+    }
+    case "product/add": {
+      const code = canonical(action.product.barcode);
+      const others = code ? state.products.map((p) => (canonical(p.barcode) === code ? { ...p, barcode: null } : p)) : state.products;
+      return { ...state, products: [...others, action.product] };
+    }
     case "suggestion/dismiss":
       return { ...state, dismissed: { ...state.dismissed, suggestions: [...state.dismissed.suggestions, action.id] } };
     case "alert/dismiss":
@@ -206,7 +225,13 @@ export function StoreProvider({ children }) {
       checkout: (method, vecinoId) => dispatch({ type: "checkout", method, vecinoId }),
       restock: (id, qty) => dispatch({ type: "product/restock", id, qty }),
       updateProduct: (id, patch) => dispatch({ type: "product/update", id, patch }),
-      addProduct: (product) => dispatch({ type: "product/add", product: { ...product, id: uid("p") } }),
+      byBarcode: (code) => findByBarcode(stateRef.current.products, code),
+      setBarcode: (id, code) => dispatch({ type: "product/barcode", id, code }),
+      addProduct(product) {
+        const created = { ...product, id: uid("p") };
+        dispatch({ type: "product/add", product: created });
+        return created;
+      },
       dismissSuggestion: (id) => dispatch({ type: "suggestion/dismiss", id }),
       dismissAlert: (id) => dispatch({ type: "alert/dismiss", id }),
       addVecino: (data) => dispatch({ type: "vecino/add", ...data }),

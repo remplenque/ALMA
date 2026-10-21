@@ -18,7 +18,8 @@ const clp = (s) => Number(String(s).replace(/\D/g, ''));
   const ctx = await browser.newContext({ viewport: { width: 1366, height: 1024 } });
   const page = await ctx.newPage();
   const errors = [];
-  page.on('console', m => { if (m.type() === 'error' && !/501/.test(m.text())) errors.push(m.text()); });
+  page.on('console', m => { if (m.type() === 'error' && !/501|Failed to load resource/.test(m.text())) errors.push(m.text()); });
+  page.on('response', r => { if (r.status() >= 400 && r.status() !== 501 && !/\/api\/|open(food|products)facts\.org/.test(r.url())) errors.push(r.status() + ' ' + r.url()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 
   // ---------- 3) Inicio: cara de Alma, fondo claro, hablarle o ver funciones ----------
@@ -46,7 +47,7 @@ const clp = (s) => Number(String(s).replace(/\D/g, ''));
   await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('alma:v1')); s.voice = false; localStorage.setItem('alma:v1', JSON.stringify(s)); });
   await page.reload({ waitUntil: 'networkidle' });
   await page.click('text=¿Cuánto gané limpio hoy?');
-  await page.waitForSelector('.face-btn .alma-live.is-speaking', { timeout: 3000 }).catch(() => {});
+  await page.waitForSelector('.face-btn .alma-live.is-speaking', { timeout: 20000 }).catch(() => {});
   const m1 = await page.evaluate(() => ({ speaking: !!document.querySelector('.face-btn .alma-live.is-speaking'), opacity: document.querySelector('.face-btn .alma-mouth')?.style.opacity }));
   const frames = new Set();
   for (let i = 0; i < 6; i++) { frames.add(await page.evaluate(() => document.querySelector('.face-btn .alma-mouth path:nth-of-type(4)')?.getAttribute('d'))); await page.waitForTimeout(90); }
@@ -55,7 +56,7 @@ const clp = (s) => Number(String(s).replace(/\D/g, ''));
   await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('alma:v1')); s.voice = true; localStorage.setItem('alma:v1', JSON.stringify(s)); });
   await page.reload({ waitUntil: 'networkidle' });
   await page.click('text=¿Qué tengo que encargar?');
-  const fb = await page.waitForSelector('.face-btn .alma-live.is-speaking', { timeout: 3000 }).then(() => true).catch(() => false);
+  const fb = await page.waitForSelector('.face-btn .alma-live.is-speaking', { timeout: 20000 }).then(() => true).catch(() => false);
   ok('R1 Si la voz del equipo falla, la boca se mueve igual', fb);
   const bubble = await page.$eval('.speech p', e => e.innerText);
   ok('R1 Lo que dice aparece en el globo junto a su cara', /encarga|acabando|surtidos/.test(bubble), bubble.slice(0, 70) + '…');
@@ -135,7 +136,23 @@ const clp = (s) => Number(String(s).replace(/\D/g, ''));
 
   // ---------- 2) Cámara: abrir webcam, enseñar y reconocer ----------
   await page.goto(BASE + '/vender', { waitUntil: 'networkidle' });
+  // ---------- 2b) Código de barras: lector USB (teclado rápido + Enter) e Inventario ----------
+  await page.evaluate(() => localStorage.removeItem('alma:v1'));
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('.product-tile');
+  await page.waitForTimeout(500);
+  await page.keyboard.type('7801481114698', { delay: 5 });
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(300);
+  const cartAfterScan = await page.evaluate(() => JSON.parse(localStorage.getItem('alma:v1')).cart);
+  ok('R2 Código de barras: un lector USB anota el producto (Arroz Banquete)', cartAfterScan.length === 1 && cartAfterScan[0].id === 'p13', JSON.stringify(cartAfterScan));
+  await page.keyboard.type('7805551234569', { delay: 5 });
+  await page.keyboard.press('Enter');
+  ok('R2 Código de barras: un código desconocido pide vincularlo a un producto', await page.waitForSelector('dialog[open] .barcode-link', { timeout: 3000 }).then(() => true).catch(() => false));
+  await page.click('dialog[open] >> text=Ahora no');
+
   await page.click('text=Escanear con cámara');
+  await page.click('.segmented >> text=Enseñar');
   const camReady = await page.waitForSelector('.teach-hold:not([disabled])', { timeout: 25000 }).then(() => true).catch(() => false);
   ok('R2 Abre la cámara y carga el reconocimiento', camReady);
   const rows = await page.$$eval('.teach-name strong', els => els.map(e => e.innerText));

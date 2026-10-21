@@ -1881,3 +1881,106 @@
     text-align: center;
   }
 }
+
+/* ---------- códigos de barras ---------- */
+.barcode-link {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 20px;
+  background: var(--pink-wash);
+  border: 2.5px solid var(--ink);
+}
+.barcode-link-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-weight: 800;
+}
+.barcode-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 6px 10px;
+  align-self: flex-start;
+}
+.barcode-link-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.scan-manual {
+  display: flex;
+  gap: 8px;
+}
+.scan-manual .input {
+  flex: 1;
+  min-width: 0;
+}
+.barcode-field {
+  display: flex;
+  gap: 8px;
+}
+.barcode-field .input {
+  flex: 1;
+  min-width: 0;
+}
+.inv-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.04em;
+}
+.inv-code-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 4px 8px 4px 6px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-mute);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.inv-code-btn:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+.barcode-found {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 8px;
+  border-radius: 16px;
+  background: var(--card);
+}
+.barcode-found img {
+  border-radius: 12px;
+  object-fit: contain;
+  background: #fff;
+}
+.barcode-found > div,
+.barcode-found > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.barcode-found > div > span,
+.barcode-found > span > span {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-mute);
+}
+.cam-tip {
+  white-space: normal;
+  text-align: center;
+  max-width: 88%;
+  background: var(--pink);
+}

@@ -63,7 +63,7 @@ Sin configuración, Alma usa la mejor voz femenina en español que tenga el disp
 AZURE_SPEECH_KEY=...
 AZURE_SPEECH_REGION=eastus
 
-# Alternativas
+# Alternativa
 ELEVENLABS_API_KEY=...
 ELEVENLABS_VOICE_ID=...
 # OPENAI_API_KEY=...
@@ -79,3 +79,18 @@ Reinicia `npm run dev` después de crear el archivo. Si la voz en la nube falla,
 4. Vuelve a **Escanear**: al mostrar un producto quieto un segundo, Alma lo anota en la boleta. Para anotar otro igual, sácalo del cuadro y vuelve a mostrarlo.
 
 Lo aprendido queda guardado en ese iPad. El reconocimiento funciona dentro del navegador (MediaPipe), sin enviar imágenes a ningún servidor.
+
+## Códigos de barras
+
+Es la forma más exacta de identificar un producto: no hay que enseñarle nada a Alma.
+
+> Privacidad: para un código desconocido, el número (nada más) se envía a openfoodfacts.org / openproductsfacts.org. La cobertura de marcas chilenas es parcial: lo que no esté, se registra a mano una sola vez.
+
+- **Con la cámara:** en **Vender → Escanear con cámara** basta mostrar el código. Lo lee solo (cualquier parte del cuadro), anota el producto y lo dice en voz alta. Mientras siga a la vista no se repite; para anotar otro igual, sácalo y vuelve a mostrarlo.
+- **Con una pistola lectora USB/Bluetooth:** funciona en toda la pantalla de Vender, aunque el foco esté en el buscador (el lector "teclea" el número muy rápido y termina con Enter; escribir a mano no se confunde con eso).
+- **Código desconocido (como Fitia):** Alma busca el número en las bases públicas Open Food Facts (comida y bebida) y Open Products Facts (aseo y otros) y muestra lo que encontró: nombre, marca, cantidad y foto. Ahí puedes **crear el producto** (solo falta cuánto lo vendes y cuántos tienes; el nombre y la categoría ya vienen) o **vincularlo a uno que ya tienes**: si se parece a uno de tu vitrina del mismo tamaño, lo propone ya elegido. Si no aparece o no hay internet, lo dice y te deja elegir a mano. Se anota en la boleta, salvo lo que se pesa. Lo aprendido queda en el equipo y no se vuelve a consultar.
+- **Sin cámara ni pistola:** en el escáner hay un campo para escribir el número.
+- **Inventario → Agregar producto:** el campo del código va primero. Lo lees con la cámara (botón), con la pistola o escribiéndolo + Enter, y Alma lo busca en la base pública y **llena nombre y categoría**; tú solo pones precio y stock. Si ya tienes un producto con ese código, te avisa. Cada producto de la lista muestra su código (toca para cambiarlo). Un código identifica a un solo producto: si se asigna uno que ya tenía otro, se le quita al anterior.
+- El agente de chat entiende el número de un código y lo ve en los datos de cada producto.
+
+Formatos: EAN-13, EAN-8, UPC-A/E, Code 128 y Code 39. Chrome y Android usan el detector del navegador; Safari (iPad) carga ZXing en wasm desde `public/zxing/`, sin CDN. Los productos de la demo traen códigos EAN-13 de ejemplo (prefijo 780 = Chile) que no son los reales de cada marca: para imprimirlos y probar, usa cualquier generador de EAN-13, o registra un código real con la tarjeta de "código nuevo". Lo que se vende a granel (pan, verduras) no lleva código: se sigue por reconocimiento visual o al toque.

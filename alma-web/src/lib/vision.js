@@ -98,8 +98,14 @@ export async function openCamera(deviceId) {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error(window.isSecureContext ? "Este navegador no permite usar la cámara." : "La cámara solo funciona con conexión segura (https).");
   }
-  const video = deviceId ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } } : { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } };
-  return navigator.mediaDevices.getUserMedia({ video, audio: false });
+  // Los códigos de barras de una lata son chicos: mientras más resolución, mejor se leen.
+  const size = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+  const video = deviceId ? { deviceId: { exact: deviceId }, ...size } : { facingMode: "environment", ...size };
+  const stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+  // Enfoque continuo para productos que se acercan y alejan (si la cámara lo permite).
+  const track = stream.getVideoTracks()[0];
+  if (track?.getCapabilities?.().focusMode?.includes("continuous")) await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
+  return stream;
 }
 
 export function stopStream(stream) {

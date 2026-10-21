@@ -2,6 +2,7 @@
 // base de datos del almacén mediante herramientas que se ejecutan acá, en el navegador, sobre
 // el mismo estado que usan las pantallas (productos, ventas, fiados, caja, cierres).
 // Si el chat no está configurado o falla, Inicio cae al cerebro local de alma.js.
+import { canonical } from "./barcode.js";
 import { clp, itemLabel, normalize, pct, round3, timeLabel } from "./format.js";
 import { RESERVE_RATE, dayStats, fiadoSummary, lowStock, margin, oldestDebtDays, peakHour, priceSuggestions, suggestedOrder, totalUntil, vecinoBalance } from "./metrics.js";
 import { STORE, hourNow } from "../data/seed.js";
@@ -93,6 +94,8 @@ function findProduct(query, products) {
   if (!q) return { error: "Falta indicar el producto" };
   const byId = products.find((p) => p.id === query);
   if (byId) return { product: byId };
+  const byCode = /^\d{8,13}$/.test(q.replace(/ /g, "")) ? products.find((p) => p.barcode && canonical(p.barcode) === canonical(q.replace(/ /g, ""))) : null;
+  if (byCode) return { product: byCode };
   const names = (p) => [normalize(p.name), ...p.aliases.map(normalize)];
   let hits = products.filter((p) => names(p).includes(q));
   if (!hits.length) hits = products.filter((p) => names(p).some((n) => (q.length >= 3 && n.includes(q)) || ` ${q} `.includes(` ${n} `)));
@@ -134,6 +137,7 @@ const productView = (p) => ({
   unidad: p.unit === "kg" ? "kg (a granel)" : "unidades",
   rotacion: p.speed,
   bajo_stock: p.stock <= p.minStock,
+  ...(p.barcode ? { codigo_barras: p.barcode } : {}),
 });
 
 const saleView = (s, vecinos) => ({

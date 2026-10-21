@@ -3,9 +3,11 @@ import { Link } from "react-router";
 import { Barcode, MagnifyingGlass, Microphone, MicrophoneSlash, Minus, PaperPlaneRight, Plus, Trash, X } from "@phosphor-icons/react";
 import { BrandIcon, SectionTitle, productIcon } from "../components/Brand.jsx";
 import AlmaLive from "../components/AlmaLive.jsx";
+import BarcodeLink from "../components/BarcodeLink.jsx";
 import CameraScanner from "../components/CameraScanner.jsx";
 import { useStore, useToast } from "../lib/store.jsx";
 import { parseOrder } from "../lib/alma.js";
+import { canonical, useWedgeScanner } from "../lib/barcode.js";
 import { say, useListener } from "../lib/voice.js";
 import { dayStats, vecinoBalance } from "../lib/metrics.js";
 import { clp, kgInput, parseKg, qtyLabel, round3 } from "../lib/format.js";
@@ -406,6 +408,7 @@ export default function Vender() {
   const [cat, setCat] = useState("Todos");
   const [scanning, setScanning] = useState(false);
   const [weighing, setWeighing] = useState(null);
+  const [unknownCode, setUnknownCode] = useState(null);
   const stats = useMemo(() => dayStats(state.sales), [state.sales]);
   const cartCount = state.cart.length;
 
@@ -419,6 +422,19 @@ export default function Vender() {
     const got = actions.addToCart(p.id, 1);
     if (!got) toast(`No queda stock de ${p.name}.`, "sad");
   }
+
+  // Lector de códigos USB/Bluetooth (escribe el número y aprieta Enter): funciona en cualquier parte de la pantalla.
+  useWedgeScanner((raw) => {
+    const code = canonical(raw);
+    setQuery("");
+    const p = actions.byBarcode(code);
+    if (!p) {
+      setUnknownCode(code);
+      return say("Ese código no lo conozco. ¿De qué producto es?", { mood: "surprised", source: "scan" });
+    }
+    add(p);
+    if (p.unit !== "kg") toast(`${p.name}: ${clp(p.price)}`, "happy");
+  }, state.dayOpen);
 
   if (!state.dayOpen) {
     return (
@@ -502,6 +518,9 @@ export default function Vender() {
 
       <CameraScanner open={scanning} onClose={() => setScanning(false)} />
       <WeighModal product={weighing} onClose={() => setWeighing(null)} />
+      <Modal open={Boolean(unknownCode)} onClose={() => setUnknownCode(null)} title="Código nuevo" kicker="Alma lo aprende una vez y después lo reconoce">
+        {unknownCode && <BarcodeLink code={unknownCode} addToCart onDone={() => setUnknownCode(null)} onCancel={() => setUnknownCode(null)} />}
+      </Modal>
     </div>
   );
 }

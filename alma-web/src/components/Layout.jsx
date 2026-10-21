@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation, useNavigate } from "react-router";
 import { List, SpeakerHigh, SpeakerSlash, X } from "@phosphor-icons/react";
 import AlmaLive from "./AlmaLive.jsx";
@@ -104,8 +104,23 @@ function AlmaCorner() {
 
 function Toasts() {
   const toasts = useToasts();
+  const ref = useRef(null);
+
+  // Las ventanas (escáner, formularios) se dibujan en la "capa superior" del navegador y tapan todo lo demás.
+  // Un popover también va ahí; al mostrarlo de nuevo con cada aviso queda por encima de la ventana abierta.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el?.showPopover) return;
+    try {
+      if (el.matches(":popover-open")) el.hidePopover();
+      if (toasts.length) el.showPopover();
+    } catch {
+      /* sin soporte: el aviso se ve solo fuera de las ventanas */
+    }
+  }, [toasts]);
+
   return (
-    <div className="toasts" aria-live="polite">
+    <div className="toasts" popover="manual" ref={ref} aria-live="polite">
       {toasts.map((t) => (
         <div className="toast" key={t.id}>
           <AlmaFace mood={t.mood} size={40} animate={false} alt="" />

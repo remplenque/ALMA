@@ -1017,7 +1017,16 @@ select.input {
 
 /* ---------- toasts ---------- */
 
+.toasts[popover]:not(:popover-open) {
+  display: none;
+}
 .toasts {
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
   position: fixed;
   left: 50%;
   bottom: 22px;

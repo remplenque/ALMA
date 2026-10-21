@@ -15,7 +15,8 @@ export default function Modal({ open, onClose, title, kicker, children, size = "
     <dialog
       ref={ref}
       className={`modal modal-${size}`}
-      onClose={onClose}
+      // Una ventana dentro de otra (ej.: la cámara dentro de "Agregar producto") no debe cerrar a la de afuera.
+      onClose={(e) => e.target === e.currentTarget && onClose()}
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
