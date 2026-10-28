@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import basicSsl from "@vitejs/plugin-basic-ssl";
@@ -19,7 +20,9 @@ function almaApiDev(env) {
           const out = await handle(JSON.parse(raw || "{}"));
           res.statusCode = out.status;
           res.setHeader("Content-Type", out.contentType);
-          res.end(out.body);
+          // La voz llega como stream: se reenvía trozo a trozo, igual que en Vercel.
+          if (out.body?.getReader) Readable.fromWeb(out.body).pipe(res);
+          else res.end(out.body);
         } catch (e) {
           res.statusCode = 500;
           res.end(String(e));
@@ -29,7 +32,7 @@ function almaApiDev(env) {
   return {
     name: "alma-api-dev",
     configureServer(server) {
-      route(server, "/api/tts", ({ text }) => synthesize(text, env));
+      route(server, "/api/tts", ({ text, mood, format }) => synthesize(text, env, mood, { stream: true, format }));
       route(server, "/api/chat", (input) => chat(input, env));
     },
   };

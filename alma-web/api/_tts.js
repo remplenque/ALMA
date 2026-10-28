@@ -11,13 +11,28 @@ const TONE =
   "Eres Alma, una mujer chilena cálida y cercana que trabaja codo a codo con el dueño de un almacén de barrio. " +
   "Habla en español de Chile, con calma, amable y natural, como una vecina de confianza. Nada de tono de locutora ni robótico.";
 
+// El ánimo de la frase (el mismo que muestra la cara de Alma) decide cómo la dice:
+//   tag     → etiqueta de emoción que entiende ElevenLabs eleven_v3
+//   v2      → expresividad para los modelos ElevenLabs v2/v2.5, que no entienden etiquetas
+//   azure   → ritmo y altura para Azure
+//   openai  → indicación de tono para gpt-4o-mini-tts
+const MOODS = {
+  happy: { tag: "[cheerfully]", v2: { stability: 0.35, style: 0.45 }, azure: ["0%", "+6%"], openai: "contenta, con una sonrisa en la voz" },
+  smile: { tag: "[warmly]", v2: { stability: 0.45, style: 0.3 }, azure: ["-4%", "+2%"], openai: "cálida y tranquila" },
+  wink: { tag: "[playfully]", v2: { stability: 0.4, style: 0.4 }, azure: ["-2%", "+4%"], openai: "cómplice, como quien da un buen dato" },
+  surprised: { tag: "[surprised]", v2: { stability: 0.3, style: 0.5 }, azure: ["0%", "+8%"], openai: "sorprendida, llamando la atención" },
+  sad: { tag: "[concerned]", v2: { stability: 0.55, style: 0.2 }, azure: ["-10%", "-2%"], openai: "preocupada pero comprensiva, más pausada" },
+  neutral: { tag: "", v2: { stability: 0.5, style: 0.2 }, azure: ["-4%", "+2%"], openai: "atenta, preguntando con interés" },
+};
+
 function escapeXml(s) {
   return s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c]);
 }
 
-async function azure(text, env) {
+async function azure(text, env, mood = MOODS.smile) {
   const voice = env.AZURE_SPEECH_VOICE || "es-CL-CatalinaNeural";
-  const ssml = `<speak version="1.0" xml:lang="es-CL"><voice name="${voice}"><prosody rate="-4%" pitch="+2%">${escapeXml(text)}</prosody></voice></speak>`;
+  const [rate, pitch] = mood.azure;
+  const ssml = `<speak version="1.0" xml:lang="es-CL"><voice name="${voice}"><prosody rate="${rate}" pitch="${pitch}">${escapeXml(text)}</prosody></voice></speak>`;
   return fetch(`https://${env.AZURE_SPEECH_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`, {
     method: "POST",
     headers: {
@@ -35,23 +50,32 @@ async function azure(text, env) {
 // español (acento chileno o neutro latino), agregarla a "My Voices" y poner su id en ELEVENLABS_VOICE_ID.
 const ELEVENLABS_DEFAULT_VOICE = "21m00Tcm4TlvDq8ikWAM"; // "Rachel"
 
-async function elevenlabs(text, env) {
+// pcm: audio crudo de 16 bits a PCM_RATE, que el navegador reproduce a medida que llega (Web Audio).
+export const PCM_RATE = 24000;
+
+async function elevenlabs(text, env, mood = MOODS.smile, pcm = false) {
   const voice = encodeURIComponent((env.ELEVENLABS_VOICE_ID || ELEVENLABS_DEFAULT_VOICE).trim());
   const model = env.ELEVENLABS_MODEL || "eleven_multilingual_v2";
-  return fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`, {
+  // eleven_v3 actúa la emoción que le pide la etiqueta; con estabilidad "natural" (0.5) no se sobreactúa.
+  const v3 = /^eleven_v3/.test(model);
+  // /stream manda el audio a medida que se genera: el primer trozo llega en menos de un segundo.
+  const format = pcm ? `pcm_${PCM_RATE}` : "mp3_44100_128";
+  return fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/stream?output_format=${format}`, {
     method: "POST",
-    headers: { "xi-api-key": env.ELEVENLABS_API_KEY.trim(), "Content-Type": "application/json", Accept: "audio/mpeg" },
+    headers: { "xi-api-key": env.ELEVENLABS_API_KEY.trim(), "Content-Type": "application/json", Accept: pcm ? "audio/pcm" : "audio/mpeg" },
     body: JSON.stringify({
-      text,
+      text: v3 && mood.tag ? `${mood.tag} ${text}` : text,
       model_id: model,
       // Los modelos v2.5 (flash/turbo, más rápidos) aceptan fijar el idioma; el multilingual v2 lo detecta solo.
       ...(/v2_5/.test(model) ? { language_code: "es" } : {}),
-      voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.25, use_speaker_boost: true },
+      voice_settings: v3
+        ? { stability: 0.5, similarity_boost: 0.8 }
+        : { ...mood.v2, similarity_boost: 0.8, use_speaker_boost: true },
     }),
   });
 }
 
-async function openai(text, env) {
+async function openai(text, env, mood = MOODS.smile) {
   return fetch("https://api.openai.com/v1/audio/speech", {
     method: "POST",
     headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
@@ -59,7 +83,7 @@ async function openai(text, env) {
       model: env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts",
       voice: env.OPENAI_TTS_VOICE || "coral",
       input: text,
-      instructions: TONE,
+      instructions: `${TONE} En esta frase suena ${mood.openai}.`,
       response_format: "mp3",
     }),
   });
@@ -97,15 +121,20 @@ async function failure(name, res) {
 }
 
 // Devuelve { status, body, contentType } para usarlo igual en Vercel y en el servidor de desarrollo.
-export async function synthesize(rawText, env) {
+// mood: happy | smile | wink | surprised | sad | neutral (cualquier otro valor se dice como "smile").
+// stream: devuelve el cuerpo como ReadableStream para reenviarlo a medida que llega.
+// format "pcm": audio crudo (solo ElevenLabs); los demás proveedores responden mp3 igual.
+export async function synthesize(rawText, env, rawMood, { stream = false, format = "mp3" } = {}) {
   const name = ttsProviderName(env);
   const provider = name && PROVIDERS[name].run;
   if (!provider) return { status: 501, body: "Voz natural no configurada", contentType: "text/plain" };
   const text = String(rawText || "").trim().slice(0, MAX_CHARS);
   if (!text) return { status: 400, body: "Falta el texto", contentType: "text/plain" };
+  const mood = Object.hasOwn(MOODS, rawMood) ? MOODS[rawMood] : MOODS.smile;
+  const pcm = format === "pcm" && name === "elevenlabs";
   let res;
   try {
-    res = await provider(text, env);
+    res = await provider(text, env, mood, pcm);
   } catch (e) {
     console.warn(`[tts] ${name}: no se pudo conectar (${e?.message || e})`);
     return { status: 502, body: `Proveedor de voz (${name}) sin conexión`, contentType: "text/plain" };
@@ -115,5 +144,6 @@ export async function synthesize(rawText, env) {
     console.warn(`[tts] ${body}`);
     return { status: 502, body, contentType: "text/plain" };
   }
-  return { status: 200, body: Buffer.from(await res.arrayBuffer()), contentType: "audio/mpeg" };
+  const contentType = pcm ? `audio/pcm;rate=${PCM_RATE}` : "audio/mpeg";
+  return { status: 200, body: stream ? res.body : Buffer.from(await res.arrayBuffer()), contentType };
 }

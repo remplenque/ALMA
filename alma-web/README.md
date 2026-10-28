@@ -66,6 +66,7 @@ AZURE_SPEECH_REGION=eastus
 # Alternativa: ElevenLabs (basta la clave; la voz es opcional)
 ELEVENLABS_API_KEY=...
 ELEVENLABS_VOICE_ID=...      # id de una voz en español de tu "My Voices"
+# ELEVENLABS_MODEL=eleven_v3          # la más expresiva: actúa el ánimo de cada frase (~1,5 s más lenta)
 # ELEVENLABS_MODEL=eleven_flash_v2_5   # más rápida y barata; por defecto eleven_multilingual_v2
 
 # OPENAI_API_KEY=...
@@ -75,6 +76,8 @@ ELEVENLABS_VOICE_ID=...      # id de una voz en español de tu "My Voices"
 ```
 
 **ElevenLabs paso a paso:** crea la clave en elevenlabs.io → Settings → API Keys (permiso "Text to Speech"). En Voice Library filtra por idioma Español (acento chileno o latino neutro), agrega la voz que te guste a "My Voices" y copia su id (Voice ID). Sin `ELEVENLABS_VOICE_ID` usa "Rachel", que habla español con acento extranjero. En Vercel hay que poner las mismas variables en Settings → Environment Variables. Para oír la voz sin abrir la app: `npm run probar-voz` (o `npm run probar-voz -- "tu frase"`).
+
+**Cómo suena natural:** antes de llegar a la voz, `src/lib/spoken.js` escribe en palabras la plata, los pesos de la pesa, las horas y las unidades ("$86.275" → "ochenta y seis mil doscientos setenta y cinco pesos", "0,735 kg" → "setecientos treinta y cinco gramos"), porque las voces sintéticas leen mal las cifras. Cada frase lleva además el ánimo de Alma (el mismo gesto de su cara): con `eleven_v3` se dice con esa emoción (alegre, cálida, cómplice, sorprendida, preocupada); con los demás modelos cambia la expresividad. Para probarlo: `npm run probar-voz -- "[happy] Vas $86.275 hoy"`.
 
 Reinicia `npm run dev` después de crear el archivo. Si la voz en la nube falla, Alma vuelve sola a la voz del dispositivo.
 

@@ -3,7 +3,7 @@
 // el mismo estado que usan las pantallas (productos, ventas, fiados, caja, cierres).
 // Si el chat no está configurado o falla, Inicio cae al cerebro local de alma.js.
 import { canonical } from "./barcode.js";
-import { clp, itemLabel, normalize, pct, round3, timeLabel } from "./format.js";
+import { clp, itemLabel, normalize, pct, qtyLabel, round3, timeLabel } from "./format.js";
 import { RESERVE_RATE, dayStats, fiadoSummary, lowStock, margin, oldestDebtDays, peakHour, priceSuggestions, suggestedOrder, totalUntil, vecinoBalance } from "./metrics.js";
 import { STORE, hourNow } from "../data/seed.js";
 
@@ -309,10 +309,10 @@ function buildContext(ctx) {
     `Ahora: ${now.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })}, ${timeLabel(now.getTime())}. Horario ${STORE.openHour | 0}:30 a ${STORE.closeHour | 0}:30.`,
     `Caja del día: ${state.dayOpen ? "abierta" : "cerrada"}.`,
     `Hoy: ${clp(s.total)} en ${s.count} ventas, ganancia limpia ${clp(s.profit)}.`,
-    low.length ? `Se está acabando: ${low.map((p) => p.name).join(", ")}.` : "Stock al día.",
-    `Fiados por cobrar: ${clp(debt.total)} entre ${debt.count} vecinos.`,
+    low.length ? `Se está acabando: ${low.map((p) => `${p.name} (quedan ${qtyLabel(p.stock, p.unit)})`).join(", ")}.` : "Stock al día.",
+    `Fiados por cobrar: ${clp(debt.total)} entre ${debt.count} vecinos${debt.top ? `; el que más debe: ${debt.top.name}, ${clp(debt.top.balance)}` : ""}.`,
     `Boleta abierta: ${state.cart.length} productos.`,
-    "Para el detalle usa las herramientas.",
+    "Para lo que no esté aquí, usa las herramientas.",
   ].join("\n");
 }
 

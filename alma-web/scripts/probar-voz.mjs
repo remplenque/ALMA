@@ -1,12 +1,14 @@
 // Prueba la voz natural de Alma con las claves de .env.local, sin abrir la app.
 //   npm run probar-voz                      → dice una frase de ejemplo
 //   npm run probar-voz -- "Hola, soy Alma"  → dice lo que le pases
+//   npm run probar-voz -- "[happy] Vas $86.275 hoy"  → con ánimo, y la plata dicha en palabras como en la app
 // Guarda el audio en la carpeta temporal y lo reproduce (macOS: afplay).
 import { readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { synthesize, ttsProviderName } from "../api/_tts.js";
+import { speakable } from "../src/lib/spoken.js";
 
 function readEnv() {
   const env = { ...process.env };
@@ -27,11 +29,14 @@ if (!name) {
   console.error("No hay voz natural configurada. Pon ELEVENLABS_API_KEY (o AZURE_SPEECH_KEY + AZURE_SPEECH_REGION) en alma-web/.env.local.");
   process.exit(1);
 }
-const text = process.argv.slice(2).join(" ") || "Hola Mario, soy Alma. Hoy vas muy bien: llevas doscientos doce mil pesos en cuarenta ventas. ¿Te anoto el pedido del pan?";
+const input = process.argv.slice(2).join(" ") || "[happy] Hola Mario, soy Alma. Hoy vas muy bien: llevas $212.000 en 40 ventas. ¿Te anoto el pedido del pan?";
+const [, mood = "smile", raw] = input.match(/^(?:\[(\w+)\]\s*)?([\s\S]*)$/);
+const text = speakable(raw);
 console.log(`Proveedor: ${name}${name === "elevenlabs" ? ` · voz ${env.ELEVENLABS_VOICE_ID || "(por defecto)"} · modelo ${env.ELEVENLABS_MODEL || "eleven_multilingual_v2"}` : ""}`);
 
 const t0 = Date.now();
-const out = await synthesize(text, env);
+console.log(`Ánimo: ${mood} · dice: "${text}"`);
+const out = await synthesize(text, env, mood);
 if (out.status !== 200) {
   console.error(`Falló (${out.status}): ${out.body}`);
   process.exit(1);

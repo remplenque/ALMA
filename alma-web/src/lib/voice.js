@@ -3,6 +3,7 @@
 // Expone el nivel de la voz cuadro a cuadro para mover la boca del isotipo.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { normalize } from "./format.js";
+import { speakable } from "./spoken.js";
 
 const Recognition = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
 export const canListen = Boolean(Recognition);
@@ -68,21 +69,16 @@ export function unlockAudio() {
   }
 }
 
-/* ---------- texto hablado: números y unidades como los diría una persona ---------- */
-
-export function speakable(text) {
-  return text
-    .replace(/\$\s?([\d.]+)/g, (_, n) => `${n.replace(/\./g, "")} pesos`)
-    .replace(/(\d),(\d)/g, "$1 coma $2")
-    .replace(/(\d)\s?kg\b/g, "$1 kilos")
-    .replace(/\b1 kilos\b/g, "1 kilo")
-    .replace(/(\d)\s?u\b/g, "$1 unidades")
-    .replace(/\bc\/u\b/g, "cada uno")
-    .replace(/[“”"]/g, "")
-    .replace(/—/g, ", ");
-}
-
 /* ---------- motores de voz ---------- */
+
+// Voz del dispositivo: el ánimo de la frase se nota en el ritmo y la altura.
+const SYNTH_TONE = {
+  happy: { rate: 1.06, pitch: 1.12 },
+  surprised: { rate: 1.05, pitch: 1.15 },
+  wink: { rate: 1.03, pitch: 1.1 },
+  sad: { rate: 0.94, pitch: 1.0 },
+  neutral: { rate: 1.0, pitch: 1.06 },
+};
 
 let cloudAvailable = true; // se desactiva si /api/tts no está configurado
 let rafId = 0;
@@ -146,8 +142,9 @@ function speakWithSynth(text, id) {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(speakable(text));
     u.lang = "es-CL";
-    u.rate = 1.02;
-    u.pitch = 1.08;
+    const tone = SYNTH_TONE[snapshot.mood];
+    u.rate = tone?.rate ?? 1.02;
+    u.pitch = tone?.pitch ?? 1.08;
     const voice = pickVoice();
     if (voice) u.voice = voice;
     // La boca parte al tiro: no todos los navegadores avisan cuándo empieza la voz.
@@ -168,20 +165,96 @@ function speakWithSynth(text, id) {
   });
 }
 
+// Voz en PCM (ElevenLabs): cada trozo suena apenas llega, sin esperar a que se genere la frase entera.
+let pcmSources = [];
+
+function stopPcm() {
+  for (const s of pcmSources) {
+    try {
+      s.stop();
+    } catch {
+      /* ya terminó */
+    }
+  }
+  pcmSources = [];
+}
+
+async function playPcmStream(res, id, rate) {
+  const reader = res.body.getReader();
+  let at = 0; // cuándo parte el próximo trozo, en el reloj de audioCtx
+  let carry = null; // cada muestra son 2 bytes y los trozos de la red no siempre calzan
+  for (;;) {
+    let chunk;
+    try {
+      chunk = await reader.read();
+    } catch (e) {
+      if (!pcmSources.length) throw e;
+      break; // se cortó la red a medio camino: que termine lo que alcanzó a llegar
+    }
+    if (snapshot.id !== id || !snapshot.speaking) {
+      reader.cancel().catch(() => {});
+      return;
+    }
+    if (chunk.done) break;
+    let bytes = chunk.value;
+    if (carry) {
+      bytes = new Uint8Array(carry.length + chunk.value.length);
+      bytes.set(carry);
+      bytes.set(chunk.value, carry.length);
+      carry = null;
+    }
+    if (bytes.length % 2) {
+      carry = bytes.slice(-1);
+      bytes = bytes.subarray(0, -1);
+    }
+    if (!bytes.length) continue;
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.length);
+    const buffer = audioCtx.createBuffer(1, bytes.length / 2, rate);
+    const samples = buffer.getChannelData(0);
+    for (let i = 0; i < samples.length; i++) samples[i] = view.getInt16(i * 2, true) / 32768;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(analyser);
+    // Un colchón chico al partir evita cortes si el segundo trozo se atrasa.
+    at = Math.max(at, audioCtx.currentTime + (pcmSources.length ? 0.02 : 0.08));
+    src.start(at);
+    at += buffer.duration;
+    if (!pcmSources.length) analyserLoop();
+    pcmSources.push(src);
+  }
+  // Espera a que suene lo ya programado; stop() lo corta antes (y dispara onended).
+  const last = pcmSources[pcmSources.length - 1];
+  if (last) {
+    await new Promise((resolve) => {
+      last.onended = resolve;
+      setTimeout(resolve, Math.max(0, at - audioCtx.currentTime) * 1000 + 150);
+    });
+  }
+  pcmSources = [];
+}
+
 async function speakWithCloud(text, id) {
+  ensureAudio();
+  await audioCtx?.resume?.();
+  const pcm = Boolean(audioCtx && analyser);
   const res = await fetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: speakable(text) }),
+    body: JSON.stringify({ text: speakable(text), mood: snapshot.mood, ...(pcm ? { format: "pcm" } : {}) }),
   });
   if (!res.ok) {
     if (res.status === 404 || res.status === 501) cloudAvailable = false;
     throw new Error(`tts ${res.status}`);
   }
+  if (snapshot.id !== id || !snapshot.speaking) return;
+  const type = res.headers.get("Content-Type") || "";
+  if (type.startsWith("audio/pcm")) {
+    await playPcmStream(res, id, Number(type.match(/rate=(\d+)/)?.[1]) || 24000);
+    stopLoop();
+    return;
+  }
   const blob = await res.blob();
-  if (snapshot.id !== id) return;
-  ensureAudio();
-  await audioCtx?.resume?.();
+  if (snapshot.id !== id || !snapshot.speaking) return;
   audioEl.src = URL.createObjectURL(blob);
   await new Promise((resolve, reject) => {
     audioEl.onended = resolve;
@@ -195,7 +268,7 @@ async function speakWithCloud(text, id) {
 
 const ECHO_TAIL_MS = 1500; // el parlante sigue sonando un instante después de terminar
 const ECHO_WINDOW_MS = 10000;
-let activeRec = null; // reconocimiento en curso (para cortarlo cuando Alma habla)
+let activeTake = null; // micrófono abierto (para cerrarlo cuando Alma habla)
 let lastSpoken = { text: "", at: 0, tail: false };
 
 // tail=false: el audio se cortó a propósito (el dueño la interrumpió), no queda eco que esperar.
@@ -226,6 +299,7 @@ export function setVoiceEnabled(on) {
 export function stop() {
   if (snapshot.speaking) noteSpoken(snapshot.text, false);
   stopLoop();
+  stopPcm();
   if (canSynth) window.speechSynthesis.cancel();
   if (audioEl) audioEl.pause();
   setSnapshot({ speaking: false });
@@ -236,7 +310,7 @@ export function stop() {
 export async function say(text, { mood = "smile", silent = false, source = "any" } = {}) {
   stop();
   // Mientras Alma habla el micrófono no escucha: si no, tomaría su voz como si fuera del dueño.
-  activeRec?.abort();
+  activeTake?.cancel();
   const id = snapshot.id + 1;
   setSnapshot({ speaking: true, text, mood, id, source });
   // Sin voz (o si el dispositivo no puede hablar): la boca se mueve un momento
@@ -266,19 +340,21 @@ export async function say(text, { mood = "smile", silent = false, source = "any"
 
 /* ---------- escuchar (micrófono) ---------- */
 
+const FINISH_WAIT_MS = 400; // al cerrar, cuánto se espera a que el navegador entregue la última frase
+const SILENCE_LIMIT_MS = 60000; // si no oye nada en un minuto, se cierra solo
+const QUICK_END_MS = 1500; // un reconocimiento que se cae antes de esto cuenta como falla
+
+// El micrófono queda abierto desde que se toca hasta que se vuelve a tocar: el dueño puede pensar,
+// hacer pausas y seguir hablando. Al cerrarlo se entrega todo lo que dijo de una vez.
 export function useListener(onResult) {
   const [listening, setListening] = useState(false);
+  const [partial, setPartial] = useState(""); // lo que va entendiendo, para mostrarlo en vivo
   const [error, setError] = useState(null);
-  const recRef = useRef(null);
+  const takeRef = useRef(null);
   const cbRef = useRef(onResult);
   cbRef.current = onResult;
 
-  useEffect(() => () => recRef.current?.abort(), []);
-
-  const stopListening = useCallback(() => {
-    recRef.current?.stop();
-    setListening(false);
-  }, []);
+  useEffect(() => () => takeRef.current?.cancel(), []);
 
   const start = useCallback(() => {
     unlockAudio();
@@ -287,42 +363,90 @@ export function useListener(onResult) {
       return false;
     }
     stop();
-    recRef.current?.abort();
-    const rec = new Recognition();
-    rec.lang = "es-CL";
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    rec.onstart = () => {
-      setError(null);
-      setListening(true);
-    };
-    rec.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
+    takeRef.current?.cancel();
+
+    // Una toma puede usar varios reconocimientos: el navegador los corta solo tras un silencio
+    // y aquí se vuelven a abrir, sumando lo que ya se dijo.
+    const take = { on: true, done: false, said: "", current: "", rec: null, openedAt: 0, fails: 0, silence: 0 };
+    const text = () => `${take.said} ${take.current}`.replace(/\s+/g, " ").trim();
+
+    const end = (deliver) => {
+      if (take.done) return;
+      take.done = true;
+      take.on = false;
+      clearTimeout(take.silence);
+      take.rec?.abort();
+      if (activeTake === take) activeTake = null;
+      if (takeRef.current === take) takeRef.current = null;
       setListening(false);
-      rec.abort(); // soltar el micrófono al tiro: no seguir escuchando mientras ella responde
-      if (isEcho(transcript)) return;
-      cbRef.current?.(transcript);
+      setPartial("");
+      const heard = text();
+      if (deliver && heard && !isEcho(heard)) cbRef.current?.(heard);
     };
-    rec.onerror = (e) => {
-      setListening(false);
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") setError("Necesito permiso para usar el micrófono.");
-      else if (e.error !== "aborted" && e.error !== "no-speech") setError("No te escuché bien. ¿Me lo repites?");
+
+    const quiet = () => {
+      clearTimeout(take.silence);
+      take.silence = setTimeout(() => take.finish(), SILENCE_LIMIT_MS);
     };
-    rec.onend = () => {
-      setListening(false);
-      if (activeRec === rec) activeRec = null;
+
+    const open = () => {
+      const rec = new Recognition();
+      rec.lang = "es-CL";
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+      rec.onstart = () => setError(null);
+      rec.onresult = (e) => {
+        take.current = Array.from(e.results, (r) => r[0].transcript).join(" ");
+        setPartial(text());
+        quiet();
+      };
+      rec.onerror = (e) => {
+        if (e.error !== "not-allowed" && e.error !== "service-not-allowed") return; // onend decide si reabrir
+        // Sin permiso al partir: avisar. Si ya venía escuchando, se entrega lo que alcanzó a oír.
+        if (!text()) setError("Necesito permiso para usar el micrófono.");
+        end(true);
+      };
+      rec.onend = () => {
+        if (take.rec !== rec || take.done) return;
+        take.said = text();
+        take.current = "";
+        if (!take.on) return end(true);
+        take.fails = Date.now() - take.openedAt < QUICK_END_MS ? take.fails + 1 : 0;
+        if (take.fails >= 3) {
+          if (!text()) setError("No te escuché bien. ¿Me lo repites?");
+          return end(true);
+        }
+        open();
+      };
+      take.rec = rec;
+      take.openedAt = Date.now();
+      try {
+        rec.start();
+      } catch {
+        end(true);
+      }
     };
-    recRef.current = rec;
-    activeRec = rec;
-    try {
-      rec.start();
-      return true;
-    } catch {
-      setListening(false);
-      return false;
-    }
+
+    take.finish = () => {
+      if (!take.on) return;
+      take.on = false;
+      take.rec?.stop(); // el navegador cierra la última frase y llama a onend
+      setTimeout(() => end(true), FINISH_WAIT_MS); // por si se demora
+    };
+    take.cancel = () => end(false);
+
+    takeRef.current = take;
+    activeTake = take;
+    setError(null);
+    setPartial("");
+    setListening(true);
+    quiet();
+    open();
+    return true;
   }, []);
 
-  const toggle = useCallback(() => (listening ? stopListening() : start()), [listening, start, stopListening]);
-  return { listening, error, start, stop: stopListening, toggle, supported: canListen };
+  const finish = useCallback(() => takeRef.current?.finish(), []);
+  const toggle = useCallback(() => (takeRef.current ? finish() : start()), [start, finish]);
+  return { listening, partial, error, start, stop: finish, toggle, supported: canListen };
 }

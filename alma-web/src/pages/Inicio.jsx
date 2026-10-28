@@ -120,7 +120,7 @@ export default function Inicio() {
 
   const homeSpeaking = speech.speaking && speech.source === "home";
   const mood = mic.listening || thinking ? "neutral" : bubble.mood;
-  const status = mic.listening ? "Te escucho…" : thinking ? "Déjame ver tus números…" : homeSpeaking ? "" : "Tócame para hablar";
+  const status = mic.listening ? "Te escucho… tócame de nuevo cuando termines" : thinking ? "Déjame ver tus números…" : homeSpeaking ? "" : "Tócame para hablar";
 
   return (
     <div className="inicio">
@@ -136,9 +136,9 @@ export default function Inicio() {
         </button>
 
         <div className="inicio-talk">
-          {heard && (
+          {(mic.listening ? mic.partial : heard) && (
             <p className="heard">
-              <span>Tú</span> {heard}
+              <span>Tú</span> {mic.listening ? mic.partial : heard}
             </p>
           )}
           <div className={`speech ${thinking ? "is-thinking" : ""}`} aria-live="polite">

@@ -57,7 +57,7 @@ function VoiceOrder() {
       <AlmaLive mood={mic.listening ? "neutral" : feedback?.mood || "smile"} size={72} listening={mic.listening} source="order" />
       <div className="voice-main">
         <label htmlFor="voice-input" className="voice-label">
-          {mic.listening ? "Te escucho… dime el pedido" : "Dicta o escribe el pedido"}
+          {mic.listening ? "Te escucho… dime el pedido y toca el micrófono al terminar" : "Dicta o escribe el pedido"}
         </label>
         <form
           className="voice-form"
@@ -71,9 +71,11 @@ function VoiceOrder() {
             <PaperPlaneRight size={20} weight="bold" />
           </button>
         </form>
-        {(feedback || mic.error) && (
+        {(feedback || mic.error || mic.partial) && (
           <p className="voice-feedback">
-            {mic.error ? (
+            {mic.listening && mic.partial ? (
+              <em>“{mic.partial}”</em>
+            ) : mic.error ? (
               mic.error
             ) : (
               <>
