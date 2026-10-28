@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation, useNavigate } from "react-router";
-import { List, SpeakerHigh, SpeakerSlash, X } from "@phosphor-icons/react";
+import { BellRinging, List, SpeakerHigh, SpeakerSlash, X } from "@phosphor-icons/react";
 import AlmaLive from "./AlmaLive.jsx";
 import Push from "./Push.jsx";
+import Intro from "./Intro.jsx";
 import { AlmaFace, BrandIcon, Logo, preloadFaces } from "./Brand.jsx";
 import { useStore, useToasts } from "../lib/store.jsx";
 import { unlockAudio, useSpeech } from "../lib/voice.js";
@@ -63,6 +64,15 @@ function Header({ home }) {
               </span>
             </span>
           </Link>
+          {/* Botón de la demo: muestra un aviso de Alma por toque, desde cualquier pantalla. */}
+          <button
+            className="icon-btn"
+            onClick={() => window.dispatchEvent(new Event("alma:demo-push"))}
+            aria-label="Simular notificación"
+            title="Simular notificación"
+          >
+            <BellRinging size={22} weight="bold" />
+          </button>
           <button
             className="icon-btn"
             onClick={actions.toggleVoice}
@@ -131,9 +141,12 @@ function Toasts() {
   );
 }
 
+let introDone = false; // la intro sale una vez por cada carga de la página
+
 export default function Layout() {
   const { pathname } = useLocation();
   const home = pathname === "/";
+  const [intro, setIntro] = useState(() => home && !introDone);
 
   useEffect(preloadFaces, []);
   useEffect(() => {
@@ -154,6 +167,14 @@ export default function Layout() {
       </main>
       {!home && <AlmaCorner />}
       <Toasts />
+      {intro && (
+        <Intro
+          onDone={() => {
+            introDone = true;
+            setIntro(false);
+          }}
+        />
+      )}
       <ScrollRestoration />
     </div>
   );

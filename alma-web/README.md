@@ -27,17 +27,18 @@ Para publicarlo: `npm run build` genera `dist/`. En Vercel basta con importar la
 
 | Función | Dónde |
 | --- | --- |
+| Intro al abrir la página: el logo de Alma animado (la cara cambia de gesto); al tocarlo se entra a hablarle | `src/components/Intro.jsx` |
 | Pantalla de inicio con la cara de Alma: se le habla tocándola, o se abren sus funciones | `/` |
 | Voz de Alma con boca animada que se mueve al hablar | `src/lib/voice.js`, `src/components/AlmaLive.jsx` |
 | Venta por voz ("dos cocas y medio kilo de hallulla"), por toque o con la cámara | `/vender` |
 | Productos a granel con peso exacto: se escribe lo que marcó la pesa (0,735 kg o 735 g), se corrige en la boleta o se calcula desde la plata ("dame una luca") | `/vender` |
 | Cámara: se le enseñan productos (arroz, Coca-Cola, galletas…) y los reconoce | `src/components/CameraScanner.jsx`, `src/lib/vision.js` |
 | Inventario que se descuenta solo con cada venta, se le suman unidades y sugiere precios | `/inventario` |
-| Notificaciones push simuladas (pan que se acaba, subir el arroz Banquete) | `src/components/Push.jsx` |
+| Notificaciones push simuladas (pan que se acaba, subir el arroz Banquete, fiado pendiente), solo a pedido para que no interrumpan | `src/components/Push.jsx` |
 | Cuaderno de fiados con abonos y recordatorio por WhatsApp | `/fiados` |
 | Resumen del día y cierre con arqueo, comparación con un día promedio y consejo para mañana | `/hoy`, `/cierre` |
 
-Los datos son de ejemplo y se guardan en el navegador. "Ver funciones → Reiniciar datos" vuelve a empezar, y "Simular notificaciones" repite los avisos para una presentación.
+Los datos son de ejemplo y se guardan en el navegador. "Ver funciones → Reiniciar datos" vuelve a empezar, y la campana del encabezado ("Simular notificación", en todas las pantallas) muestra un aviso con voz por cada toque (pan, arroz, fiado y vuelve a empezar). Los avisos nunca salen solos, y si Alma está escuchando o hablando, esperan a que termine.
 
 ## Cerebro de Alma (chat con IA)
 

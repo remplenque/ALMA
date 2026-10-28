@@ -290,6 +290,11 @@ function isEcho(transcript) {
 
 /* ---------- API pública ---------- */
 
+// ¿Alma está escuchando al dueño o hablando desde otra cara? Sirve para no interrumpirla.
+export function isBusy(except) {
+  return Boolean(activeTake) || (snapshot.speaking && snapshot.source !== except);
+}
+
 let voiceOn = true;
 export function setVoiceEnabled(on) {
   voiceOn = on;

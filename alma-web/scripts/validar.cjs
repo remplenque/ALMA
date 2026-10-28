@@ -21,9 +21,25 @@ const clp = (s) => Number(String(s).replace(/\D/g, ''));
   page.on('console', m => { if (m.type() === 'error' && !/501|Failed to load resource/.test(m.text())) errors.push(m.text()); });
   page.on('response', r => { if (r.status() >= 400 && r.status() !== 501 && !/\/api\/|open(food|products)facts\.org/.test(r.url())) errors.push(r.status() + ' ' + r.url()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  // La intro (logo animado) tapa el inicio hasta que se toca.
+  const skipIntro = async () => {
+    const intro = await page.$('.intro');
+    if (intro) { await intro.click(); await page.waitForSelector('.intro', { state: 'detached' }); }
+  };
+
+  // ---------- Intro: logo animado de Alma; al tocarlo se entra a hablarle ----------
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  const word = !!(await page.$('.intro .intro-word[src*="wordmark"]'));
+  const gestures = new Set();
+  for (let i = 0; i < 10; i++) { gestures.add(await page.$eval('.intro .intro-face img.is-on', e => e.getAttribute('src').split('/').pop()).catch(() => null)); await page.waitForTimeout(300); }
+  gestures.delete(null);
+  ok('Intro: logo de Alma con la cara cambiando de gesto', word && gestures.size >= 3, [...gestures].join(', '));
+  await skipIntro();
+  ok('Intro: al tocarla aparece Alma para hablarle', await page.isVisible('.face-btn'));
 
   // ---------- 3) Inicio: cara de Alma, fondo claro, hablarle o ver funciones ----------
   await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  await skipIntro();
   const home = await page.evaluate(() => ({
     face: !!document.querySelector('.face-btn .alma-live img[src*="alma-hd"]'),
     bg: getComputedStyle(document.body).backgroundColor,
@@ -43,9 +59,11 @@ const clp = (s) => Number(String(s).replace(/\D/g, ''));
 
   // ---------- 1) Voz: habla desde la cara y mueve la boca ----------
   await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  await skipIntro();
   await page.waitForTimeout(600);
   await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('alma:v1')); s.voice = false; localStorage.setItem('alma:v1', JSON.stringify(s)); });
   await page.reload({ waitUntil: 'networkidle' });
+  await skipIntro();
   await page.click('text=¿Cuánto gané limpio hoy?');
   await page.waitForSelector('.face-btn .alma-live.is-speaking', { timeout: 20000 }).catch(() => {});
   const m1 = await page.evaluate(() => ({ speaking: !!document.querySelector('.face-btn .alma-live.is-speaking'), opacity: document.querySelector('.face-btn .alma-mouth')?.style.opacity }));
@@ -55,6 +73,7 @@ const clp = (s) => Number(String(s).replace(/\D/g, ''));
   // Con voz activada pero sin voces en el equipo (caso de este navegador de pruebas), igual debe moverse.
   await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('alma:v1')); s.voice = true; localStorage.setItem('alma:v1', JSON.stringify(s)); });
   await page.reload({ waitUntil: 'networkidle' });
+  await skipIntro();
   await page.click('text=¿Qué tengo que encargar?');
   const fb = await page.waitForSelector('.face-btn .alma-live.is-speaking', { timeout: 20000 }).then(() => true).catch(() => false);
   ok('R1 Si la voz del equipo falla, la boca se mueve igual', fb);
@@ -79,12 +98,20 @@ const clp = (s) => Number(String(s).replace(/\D/g, ''));
   const idioms = ['al tiro', 'harto', 'la once', 'casero', 'pues', 'vecino'].filter(w => all.includes(w));
   ok('R1 Modismos chilenos presentes, sin exagerar', idioms.length >= 2, idioms.join(', '));
 
-  // ---------- 5) Notificaciones push simuladas ----------
+  // ---------- 5) Notificaciones push simuladas: solo con el botón, para no interrumpir ----------
   await page.goto(BASE + '/hoy', { waitUntil: 'networkidle' });
-  const p1 = await page.waitForSelector('.push strong', { timeout: 12000 }).then(e => e.innerText()).catch(() => null);
+  await page.waitForTimeout(8000);
+  ok('R5 Ningún aviso aparece solo', !(await page.$('.push')));
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  await skipIntro();
+  const simulate = async () => {
+    await page.click('[aria-label="Simular notificación"]');
+    return page.waitForSelector('.push strong', { timeout: 5000 }).then(e => e.innerText()).catch(() => null);
+  };
+  const p1 = await simulate();
   ok('R5 Push 1: pedir más pan', /pan/i.test(p1 || ''), p1);
   await page.click('.push >> text=Más tarde');
-  const p2 = await page.waitForSelector('.push strong', { timeout: 20000 }).then(e => e.innerText()).catch(() => null);
+  const p2 = await simulate();
   ok('R5 Push 2: ajustar precio arroz Banquete', /Arroz Banquete/i.test(p2 || ''), p2);
   const btn = await page.$eval('.push .btn-pink', e => e.innerText);
   await page.click('.push .btn-pink');
@@ -189,6 +216,7 @@ const clp = (s) => Number(String(s).replace(/\D/g, ''));
 
   // ---------- Marca (Brand Book) ----------
   await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  await skipIntro();
   const brand = await page.evaluate(async () => {
     await document.fonts.ready;
     const css = [...document.styleSheets].flatMap(s => { try { return [...s.cssRules].map(r => r.cssText); } catch { return []; } }).join('\n');

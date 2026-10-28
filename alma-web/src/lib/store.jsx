@@ -246,10 +246,7 @@ export function StoreProvider({ children }) {
       closeDay: (counted) => dispatch({ type: "day/close", counted }),
       openDay: (openingCash) => dispatch({ type: "day/open", openingCash }),
       toggleVoice: () => dispatch({ type: "voice/toggle" }),
-      resetDemo() {
-        dispatch({ type: "demo/reset" });
-        window.dispatchEvent(new Event("alma:demo-push"));
-      },
+      resetDemo: () => dispatch({ type: "demo/reset" }),
     };
   }, []);
 

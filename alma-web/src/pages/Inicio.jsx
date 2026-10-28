@@ -44,9 +44,6 @@ export function FunctionsSheet({ open, onClose }) {
         </div>
         <footer className="sheet-foot">
           <span className="muted small">Opciones de la demo</span>
-          <button className="btn btn-sm btn-paper" onClick={() => window.dispatchEvent(new Event("alma:demo-push"))}>
-            Simular notificaciones
-          </button>
           <button className="btn btn-sm btn-paper" onClick={actions.toggleVoice}>
             Voz: {state.voice ? "activada" : "en silencio"}
           </button>
